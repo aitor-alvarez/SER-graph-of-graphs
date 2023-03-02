@@ -108,12 +108,12 @@ def get_interval_contour(fqs):
 
 
 def find_sublist(s,l):
-    result=[]
-    sll=len(s)
-    for ind in (i for i,e in enumerate(l) if e==s[0]):
-        if l[ind:ind+sll]==s:
-            result.append((ind,ind+sll-1))
-    return result
+	result=[]
+	sll=len(s)
+	for ind in (i for i,e in enumerate(l) if e==s[0]):
+		if l[ind:ind+sll]==s:
+			result.append((ind,ind+sll-1))
+	return result
 
 
 def get_interval(dist):
