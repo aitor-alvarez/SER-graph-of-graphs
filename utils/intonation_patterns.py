@@ -12,20 +12,20 @@ from torch_geometric.utils import from_networkx
 
 emotions = ['xxx']
 
-def build_corpus(iemocap_dir):
+def build_corpus(corpus_dir):
 	subpath='/Train/'
-	csv_files = [csv for csv in os.listdir(iemocap_dir+subpath) if csv.endswith('.csv')]
+	csv_files = [csv for csv in os.listdir(corpus_dir+subpath) if csv.endswith('.csv')]
 	print("Creating the corpus...")
 	for c in csv_files:
-		df= pd.read_csv(iemocap_dir+subpath + '/' +c)
+		df= pd.read_csv(corpus_dir+subpath + '/' +c)
 		for row in df.itertuples():
 			if row[4] not in emotions:
-				if os.path.isdir(iemocap_dir+subpath +row[4]):
-					os.rename(iemocap_dir+subpath+subpath +row[3]+'.wav', iemocap_dir+subpath+ '/' +row[4]+'/'+row[3]+'.wav' )
+				if os.path.isdir(corpus_dir+subpath +row[4]):
+					os.rename(corpus_dir+subpath+subpath +row[3]+'.wav', corpus_dir+subpath+ '/' +row[4]+'/'+row[3]+'.wav' )
 				else:
-					os.mkdir(iemocap_dir + subpath + row[4])
-					os.rename(iemocap_dir + subpath + subpath + row[3]+'.wav',
-					          iemocap_dir + subpath  + row[4] + '/' + row[3]+'.wav')
+					os.mkdir(corpus_dir + subpath + row[4])
+					os.rename(corpus_dir + subpath + subpath + row[3]+'.wav',
+					          corpus_dir + subpath  + row[4] + '/' + row[3]+'.wav')
 	print("corpus completed")
 
 def generate_dataset(audio_dir, emo, train=False):
@@ -187,5 +187,3 @@ def create_graph(G, type='cycle'):
 		e = nx.cycle_graph(G)
 	G.add_edges_from(e.edges)
 	return G
-
-
