@@ -13,7 +13,7 @@ from torch_geometric.utils import from_networkx
 emotions = ['xxx']
 
 def build_corpus(corpus_dir):
-	subpath='/Train/'
+	subpath='/train/'
 	csv_files = [csv for csv in os.listdir(corpus_dir+subpath) if csv.endswith('.csv')]
 	print("Creating the corpus...")
 	for c in csv_files:
@@ -27,6 +27,7 @@ def build_corpus(corpus_dir):
 					os.rename(corpus_dir + subpath + subpath + row[3]+'.wav',
 					          corpus_dir + subpath  + row[4] + '/' + row[3]+'.wav')
 	print("corpus completed")
+	return None
 
 def generate_dataset(audio_dir, emo, train=False):
 	if train == True: sub='train/'
@@ -38,6 +39,8 @@ def generate_dataset(audio_dir, emo, train=False):
 	dictionary = create_dictionary('patterns/'+sub+emo+'_maximal.txt')
 	path_out_audio='patterns/'+sub+emo+'/'
 	create_audio_samples(dictionary, contours, files, pitches, inds, audio_dir+emo+'/', path_out_audio)
+	print("Dataset generation completed")
+	return None
 
 
 def create_contours(audio_dir, emo):
@@ -45,7 +48,44 @@ def create_contours(audio_dir, emo):
 	contours, inds = get_interval_contour(fqs)
 	return contours, files, pitches, inds
 
+###Creates a graph based on the prosodic similarity of the speech utterances.
+def generate_graph(contours, files):
+	dictionary = create_nodes_dictionary('patterns/train/')
+	G = nx.Graph()
+	node_list=[]
+	for d in dictionary:
+		nodes = []
+		for i, c in enumerate(contours):
+			nodename = files[i]
+			if len(d) > len(c):
+				continue
+			else:
+				sub = find_sublist(d, c)
+			if sub:
+				nodes.append(nodename)
+				G.add_node(nodename, node_id=nodename, y=nodename[nodename.rfind('/')-3:nodename.rfind('/')])
+		g = nx.Graph()
+		g.add_nodes_from(nodes)
+		sg= create_graph(g)
+		G.add_edges_from(sg.edges, weight=1.00)
+		node_list.append(nodes)
+	graph = add_edge_attributes(G, node_list)
+	gp= from_networkx(graph)
+	torch.save(gp, 'patterns/graph.pt')
 
+
+def add_edge_attributes(G, nodes):
+	for e in G.edges:
+		for n in nodes:
+			if e[0] and e[1] in n:
+				if 'weight' in G[e[0]][e[1]]:
+					G[e[0]][e[1]]['weight'] +=1
+	return G
+
+
+#Takes as the input a dictionary of (intonation) patterns and contours and slices audio files based on the patterns
+# contained in the dictionary. At the same time it saves the co-occurences of patterns in an adjacency list to
+#create a graph.
 def create_audio_samples(dictionary, contours, files, pitches, inds, path, path_out_audio):
 	for i, c in enumerate(contours):
 		G = nx.Graph()
@@ -71,7 +111,7 @@ def create_audio_samples(dictionary, contours, files, pitches, inds, path, path_
 def slice_audio(slice_from, slice_to, path, audio_file, path_out):
 	audio = AudioSegment.from_wav(path)
 	try:
-		seg = audio[slice_from * 1000:slice_to * 1100]
+		seg = audio[slice_from * 1000:slice_to * 1000]
 		seg.set_channels(2)
 		seg.export(path_out+audio_file, format="wav", bitrate="192k")
 	except:
@@ -85,18 +125,25 @@ def get_f0_praat(audio_dir):
 	fqs = [pitch.kill_octave_jumps().selected_array['frequency'] for pitch in pitches]
 	return fqs, files, pitches
 
-
 #return a list of intervallic distances between F0 points expressed in cents
 def get_interval_contour(fqs):
 	contours = []
 	inds= []
+	carry =0
 	for f in fqs:
 		contour = []
 		ind = []
 		for i in range(len(f)-1):
 			if i < len(f):
-				if f[i] == 0 or f[i+1] == 0:
-					continue
+				if f[i] == 0 and f[i+1] == 0:
+					contour.append(('None', 'None'))
+					ind.append((i, i + 1))
+				elif f[i] == 0 and f[i+1] != 0:
+					contour.append(('None', f[i+1]))
+					ind.append((i, i + 1))
+				elif f[i] != 0 and f[i+1] == 0:
+					contour.append((f[i], 'None'))
+					ind.append((i, i + 1))
 				else:
 					dist = 1200 * np.log2(f[i+1]/f[i])
 					dist = get_interval(dist)
