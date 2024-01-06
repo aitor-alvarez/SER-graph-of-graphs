@@ -9,12 +9,10 @@ import uuid
 import networkx as nx
 from torch_geometric.utils import from_networkx
 
-emotions = ['xxx']
-
 
 def generate_dataset(audio_dir, emo='neutral'):
 	filename = emo
-	contours, files, pitches, inds= create_contours(audio_dir, emo)
+	contours, files, pitches, inds= create_contours(audio_dir)
 	pattern_length = 8
 	Gapbide(contours, 12, 0, 0, pattern_length, filename).run()
 	dictionary = create_dictionary(filename+'_intervals.txt')
@@ -23,8 +21,8 @@ def generate_dataset(audio_dir, emo='neutral'):
 	return None
 
 
-def create_contours(audio_dir, emo):
-	fqs, files, pitches = get_f0_praat(audio_dir + emo + '/')
+def create_contours(audio_dir):
+	fqs, files, pitches = get_f0_praat(audio_dir)
 	contours, inds = get_interval_contour(fqs)
 	return contours, files, pitches, inds
 
@@ -212,6 +210,7 @@ def create_patterns_audio_dataset(dictionary, contours, path, files):
 def slice_audio(slice_from, slice_to, path, audio_file, path_out):
 	audio = AudioSegment.from_wav(path)
 	try:
+		#we add 100 ms extra at the beginning and at the end.
 		seg = audio[slice_from * 900:slice_to * 1100]
 		seg.set_channels(2)
 		seg.export(path_out + audio_file, format="mp3")
