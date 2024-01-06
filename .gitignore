@@ -5,3 +5,4 @@ patterns/
 .DS_Store
 *.pt
 wandb/
+txt_OPI.py

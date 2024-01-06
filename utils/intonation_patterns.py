@@ -4,7 +4,6 @@ import numpy as np
 import parselmouth
 from pydub import AudioSegment
 from utils.gapbide import Gapbide
-import pandas as pd
 from utils.process_file import create_dictionary, create_nodes_dictionary
 import uuid
 import networkx as nx
@@ -12,33 +11,14 @@ from torch_geometric.utils import from_networkx
 
 emotions = ['xxx']
 
-def build_corpus(corpus_dir):
-	subpath='/train/'
-	csv_files = [csv for csv in os.listdir(corpus_dir+subpath) if csv.endswith('.csv')]
-	print("Creating the corpus...")
-	for c in csv_files:
-		df= pd.read_csv(corpus_dir+subpath + '/' +c)
-		for row in df.itertuples():
-			if row[4] not in emotions:
-				if os.path.isdir(corpus_dir+subpath +row[4]):
-					os.rename(corpus_dir+subpath+subpath +row[3]+'.wav', corpus_dir+subpath+ '/' +row[4]+'/'+row[3]+'.wav' )
-				else:
-					os.mkdir(corpus_dir + subpath + row[4])
-					os.rename(corpus_dir + subpath + subpath + row[3]+'.wav',
-					          corpus_dir + subpath  + row[4] + '/' + row[3]+'.wav')
-	print("corpus completed")
-	return None
 
-def generate_dataset(audio_dir, emo, train=False):
-	if train == True: sub='train/'
-	if train == False: sub='test/'
-	filename = ''
+def generate_dataset(audio_dir, emo='neutral'):
+	filename = emo
 	contours, files, pitches, inds= create_contours(audio_dir, emo)
 	pattern_length = 8
 	Gapbide(contours, 12, 0, 0, pattern_length, filename).run()
-	dictionary = create_dictionary('patterns/'+sub+emo+'_maximal.txt')
-	path_out_audio='patterns/'+sub+emo+'/'
-	create_audio_samples(dictionary, contours, files, pitches, inds, audio_dir+emo+'/', path_out_audio)
+	dictionary = create_dictionary(filename+'_intervals.txt')
+	create_patterns_audio_dataset(dictionary, contours, audio_dir, files)
 	print("Dataset generation completed")
 	return None
 
@@ -83,37 +63,12 @@ def add_edge_attributes(G, nodes):
 	return G
 
 
-#Takes as the input a dictionary of (intonation) patterns and contours and slices audio files based on the patterns
-# contained in the dictionary. At the same time it saves the co-occurences of patterns in an adjacency list to
-#create a graph.
-def create_audio_samples(dictionary, contours, files, pitches, inds, path, path_out_audio):
-	for i, c in enumerate(contours):
-		G = nx.Graph()
-		path2 = path+files[i]
-		for d in dictionary:
-			if len(d) > len(c):
-				continue
-			else:
-				sub = find_sublist(d, c)
-			if sub:
-				for s in sub:
-					name = files[i].replace('.wav', '_')+str(uuid.uuid4())+'.wav'
-					ini = inds[i][s[0]][0]+1
-					end = inds[i][s[1]][0]+1
-					slice_audio(pitches[i].get_time_from_frame_number(ini), pitches[i].get_time_from_frame_number(end), path2, name, path_out_audio)
-					G.add_node(name, y=path_out_audio+name)
-		if G.number_of_nodes()>0:
-			graph = create_graph(G)
-			graph = from_networkx(graph)
-			torch.save(graph, path_out_audio +files[i].replace('.wav', '')+ '.pt')
-
-
 def slice_audio(slice_from, slice_to, path, audio_file, path_out):
 	audio = AudioSegment.from_wav(path)
 	try:
 		seg = audio[slice_from * 1000:slice_to * 1000]
 		seg.set_channels(2)
-		seg.export(path_out+audio_file, format="wav", bitrate="192k")
+		seg.export(path_out+audio_file, format="mp3")
 	except:
 		print(f"ERROR PROCESSING AUDIO FILE: {path}")
 
@@ -121,7 +76,7 @@ def slice_audio(slice_from, slice_to, path, audio_file, path_out):
 #extract f0 from Parselmouth Praat function
 def get_f0_praat(audio_dir):
 	files = [f for f in os.listdir(audio_dir) if f.endswith('.wav')]
-	pitches = [parselmouth.Sound(audio_dir+f).to_pitch(pitch_floor=75.0, pitch_ceiling=650.0) for f in files]
+	pitches = [parselmouth.Sound(audio_dir+f).to_pitch(time_step=0.01, pitch_floor=75.0, pitch_ceiling=650.0) for f in files]
 	fqs = [pitch.kill_octave_jumps().selected_array['frequency'] for pitch in pitches]
 	return fqs, files, pitches
 
@@ -234,3 +189,31 @@ def create_graph(G, type='cycle'):
 		e = nx.cycle_graph(G)
 	G.add_edges_from(e.edges)
 	return G
+
+
+def create_patterns_audio_dataset(dictionary, contours, path, files):
+	for i, c in enumerate(contours):
+		time = [t * 0.01 for t in range(1, len(c) + 1)]
+		if not os.path.isdir(path+'patterns/'):
+			os.makedirs(path+'patterns/')
+		for d in dictionary:
+			if len(d) > len(c):
+				continue
+			else:
+				sub = find_sublist(d, c)
+			if sub:
+				for s in sub:
+					name = files[i].replace('.wav', '_')+str(uuid.uuid4())+'.mp3'
+					slice_audio(time[s[0]], time[s[1]], path+files[i], name, path+'patterns/')
+	print("Patterns generated")
+	return None
+
+
+def slice_audio(slice_from, slice_to, path, audio_file, path_out):
+	audio = AudioSegment.from_wav(path)
+	try:
+		seg = audio[slice_from * 900:slice_to * 1100]
+		seg.set_channels(2)
+		seg.export(path_out + audio_file, format="mp3")
+	except:
+		print(f"ERROR PROCESSING AUDIO FILE: {path}")
