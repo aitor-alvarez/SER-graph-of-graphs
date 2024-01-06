@@ -74,7 +74,7 @@ def slice_audio(slice_from, slice_to, path, audio_file, path_out):
 #extract f0 from Parselmouth Praat function
 def get_f0_praat(audio_dir):
 	files = [f for f in os.listdir(audio_dir) if f.endswith('.wav')]
-	pitches = [parselmouth.Sound(audio_dir+f).to_pitch(time_step=0.01, pitch_floor=75.0, pitch_ceiling=650.0) for f in files]
+	pitches = [parselmouth.Sound(audio_dir+f).to_pitch(time_step=0.025, pitch_floor=50.0, pitch_ceiling=650.0) for f in files]
 	fqs = [pitch.kill_octave_jumps().selected_array['frequency'] for pitch in pitches]
 	return fqs, files, pitches
 
@@ -89,14 +89,7 @@ def get_interval_contour(fqs):
 		for i in range(len(f)-1):
 			if i < len(f):
 				if f[i] == 0 and f[i+1] == 0:
-					contour.append(('None', 'None'))
-					ind.append((i, i + 1))
-				elif f[i] == 0 and f[i+1] != 0:
-					contour.append(('None', f[i+1]))
-					ind.append((i, i + 1))
-				elif f[i] != 0 and f[i+1] == 0:
-					contour.append((f[i], 'None'))
-					ind.append((i, i + 1))
+					continue
 				else:
 					dist = 1200 * np.log2(f[i+1]/f[i])
 					dist = get_interval(dist)
@@ -191,7 +184,7 @@ def create_graph(G, type='cycle'):
 
 def create_patterns_audio_dataset(dictionary, contours, path, files):
 	for i, c in enumerate(contours):
-		time = [t * 0.01 for t in range(1, len(c) + 1)]
+		time = [t * 0.025 for t in range(1, len(c) + 1)]
 		if not os.path.isdir(path+'patterns/'):
 			os.makedirs(path+'patterns/')
 		for d in dictionary:
