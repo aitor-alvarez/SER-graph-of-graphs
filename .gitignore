@@ -4,5 +4,6 @@ venv/
 patterns/
 .DS_Store
 *.pt
+*.txt
 wandb/
 txt_OPI.py
