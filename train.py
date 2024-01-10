@@ -11,14 +11,23 @@ accuracy = evaluate.load("accuracy")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+feature_extractor = AutoFeatureExtractor.from_pretrained("facebook/hubert-large-ll60k")
+
 def compute_metrics(eval_pred):
     predictions = np.argmax(eval_pred.predictions, axis=1)
     return accuracy.compute(predictions=predictions, references=eval_pred.label_ids)
 
+
+def preprocess_function(examples):
+    audio_arrays = [x["array"] for x in examples["audio"]]
+    inputs = feature_extractor(
+        audio_arrays, sampling_rate=feature_extractor.sampling_rate, max_length=16000, truncation=True
+    )
+    return inputs
+
 def emotion_classification_hubert(model_name, dataset, output_dir, batch_size, num_epochs,train_test):
     config = AutoConfig.from_pretrained(pretrained_model_name_or_path=model_name)
     processor = Wav2Vec2FeatureExtractor.from_pretrained(model_name)
-    feature_extractor = AutoFeatureExtractor.from_pretrained(model_name)
     hubert_emotion = HubertEmotion.from_pretrained(model_name,config=config).to(device)
     labels = dataset["train"].features["label"].names
     label2id, id2label = dict(), dict()
@@ -28,8 +37,10 @@ def emotion_classification_hubert(model_name, dataset, output_dir, batch_size, n
 
     num_labels = len(id2label)
 
+    encoded_dataset = dataset.map(preprocess_function, remove_columns="audio", batched=True)
+
     model = AutoModelForAudioClassification.from_pretrained(
-        hubert_emotion,
+        model_name,
         num_labels=num_labels,
         label2id=label2id,
         id2label=id2label,
@@ -59,16 +70,9 @@ def emotion_classification_hubert(model_name, dataset, output_dir, batch_size, n
             model=model,
             args=training_args,
             compute_metrics=compute_metrics,
-            train_dataset=dataset["train"],
-            eval_dataset=dataset["test"],
+            train_dataset=encoded_dataset["train"],
+            eval_dataset=encoded_dataset["test"],
             tokenizer=processor.feature_extractor,
         )
 
-        trainer.train(resume_from_checkpoint=True)
-
-        def preprocess_function(examples):
-            audio_arrays = [x["array"] for x in examples["audio"]]
-            inputs = feature_extractor(
-                audio_arrays, sampling_rate=feature_extractor.sampling_rate, max_length=16000, truncation=True
-            )
-            return inputs
+        trainer.train()
