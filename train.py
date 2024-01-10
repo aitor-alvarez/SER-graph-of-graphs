@@ -1,6 +1,5 @@
 import os
 import random
-import librosa
 import numpy as np
 import torch
 from transformers import AutoConfig, Wav2Vec2FeatureExtractor, TrainingArguments, Trainer, AutoModelForAudioClassification, AutoFeatureExtractor
@@ -27,8 +26,7 @@ def preprocess_function(examples):
 
 def emotion_classification_hubert(model_name, dataset, output_dir, batch_size, num_epochs,train_test):
     config = AutoConfig.from_pretrained(pretrained_model_name_or_path=model_name)
-    processor = Wav2Vec2FeatureExtractor.from_pretrained(model_name)
-    hubert_emotion = HubertEmotion.from_pretrained(model_name,config=config).to(device)
+    #hubert_emotion = HubertEmotion.from_pretrained(model_name,config=config).to(device)
     labels = dataset["train"].features["label"].names
     label2id, id2label = dict(), dict()
     for i, label in enumerate(labels):
@@ -44,16 +42,16 @@ def emotion_classification_hubert(model_name, dataset, output_dir, batch_size, n
         num_labels=num_labels,
         label2id=label2id,
         id2label=id2label,
-    )
+    ).to(device)
 
     if train_test == 'train':
         training_args = TrainingArguments(
             output_dir=output_dir,
             remove_unused_columns=False,
-            per_device_train_batch_size=batch_size,
+            per_device_train_batch_size=32,
             gradient_accumulation_steps=2,
             evaluation_strategy="steps",
-            num_train_epochs=num_epochs,
+            num_train_epochs=40,
             gradient_checkpointing=True,
             fp16=True,
             save_steps=400,
@@ -72,7 +70,7 @@ def emotion_classification_hubert(model_name, dataset, output_dir, batch_size, n
             compute_metrics=compute_metrics,
             train_dataset=encoded_dataset["train"],
             eval_dataset=encoded_dataset["test"],
-            tokenizer=processor.feature_extractor,
+            tokenizer=feature_extractor,
         )
 
         trainer.train()
