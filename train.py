@@ -8,6 +8,8 @@ import evaluate
 
 accuracy = evaluate.load("accuracy")
 
+recall = evaluate.load('recall')
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -15,7 +17,10 @@ feature_extractor = AutoFeatureExtractor.from_pretrained("facebook/hubert-large-
 
 def compute_metrics(eval_pred):
     predictions = np.argmax(eval_pred.predictions, axis=1)
-    return accuracy.compute(predictions=predictions, references=eval_pred.label_ids)
+    acc = accuracy.compute(predictions=predictions, references=eval_pred.label_ids)
+    rec_w = recall.compute(predictions=predictions, references=eval_pred.label_ids, average='weighted')
+    rec_u = recall.compute(predictions=predictions, references=eval_pred.label_ids, average=None)
+    return acc, rec_w, rec_u
 
 
 def preprocess_function(examples):
