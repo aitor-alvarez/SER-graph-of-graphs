@@ -7,3 +7,5 @@ patterns/
 *.txt
 wandb/
 txt_OPI.py
+pretrained
+pretrained*

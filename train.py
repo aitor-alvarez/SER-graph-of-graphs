@@ -8,6 +8,7 @@ import evaluate
 
 accuracy = evaluate.load("accuracy")
 
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 feature_extractor = AutoFeatureExtractor.from_pretrained("facebook/hubert-large-ll60k")
@@ -34,7 +35,6 @@ def emotion_classification_hubert(model_name, dataset, output_dir, batch_size, n
         id2label[str(i)] = label
 
     num_labels = len(id2label)
-
     encoded_dataset = dataset.map(preprocess_function, remove_columns="audio", batched=True)
 
     model = AutoModelForAudioClassification.from_pretrained(
@@ -51,7 +51,7 @@ def emotion_classification_hubert(model_name, dataset, output_dir, batch_size, n
             per_device_train_batch_size=32,
             gradient_accumulation_steps=2,
             evaluation_strategy="steps",
-            num_train_epochs=40,
+            num_train_epochs=100,
             gradient_checkpointing=True,
             fp16=True,
             save_steps=400,
@@ -68,9 +68,9 @@ def emotion_classification_hubert(model_name, dataset, output_dir, batch_size, n
             model=model,
             args=training_args,
             compute_metrics=compute_metrics,
-            train_dataset=encoded_dataset["train"],
-            eval_dataset=encoded_dataset["test"],
+            train_dataset=encoded_dataset["train"].with_format("torch"),
+            eval_dataset=encoded_dataset["test"].with_format("torch"),
             tokenizer=feature_extractor,
         )
 
-        trainer.train()
+        trainer.train(resume_from_checkpoint=True)
