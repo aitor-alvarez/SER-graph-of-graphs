@@ -44,7 +44,7 @@ class TemporalConvNet(nn.Module):
             layers += [TemporalBlock(in_channels, out_channels, kernel_size, stride=1, dilation=dilation_size,
                                      padding=(kernel_size-1) * dilation_size, dropout=dropout)]
 
-        self.network = nn.Sequential(*layers)
+        self.net = nn.Sequential(*layers)
 
     def forward(self, x):
-        return self.network(x)
+        return self.net(x)

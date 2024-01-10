@@ -1,0 +1,74 @@
+import os
+import random
+import librosa
+import numpy as np
+import torch
+from transformers import AutoConfig, Wav2Vec2FeatureExtractor, TrainingArguments, Trainer, AutoModelForAudioClassification, AutoFeatureExtractor
+from models.hubert import HubertEmotion
+import evaluate
+
+accuracy = evaluate.load("accuracy")
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def compute_metrics(eval_pred):
+    predictions = np.argmax(eval_pred.predictions, axis=1)
+    return accuracy.compute(predictions=predictions, references=eval_pred.label_ids)
+
+def emotion_classification_hubert(model_name, dataset, output_dir, batch_size, num_epochs,train_test):
+    config = AutoConfig.from_pretrained(pretrained_model_name_or_path=model_name)
+    processor = Wav2Vec2FeatureExtractor.from_pretrained(model_name)
+    feature_extractor = AutoFeatureExtractor.from_pretrained(model_name)
+    hubert_emotion = HubertEmotion.from_pretrained(model_name,config=config).to(device)
+    labels = dataset["train"].features["label"].names
+    label2id, id2label = dict(), dict()
+    for i, label in enumerate(labels):
+        label2id[label] = str(i)
+        id2label[str(i)] = label
+
+    num_labels = len(id2label)
+
+    model = AutoModelForAudioClassification.from_pretrained(
+        hubert_emotion,
+        num_labels=num_labels,
+        label2id=label2id,
+        id2label=id2label,
+    )
+
+    if train_test == 'train':
+        training_args = TrainingArguments(
+            output_dir=output_dir,
+            remove_unused_columns=False,
+            per_device_train_batch_size=batch_size,
+            gradient_accumulation_steps=2,
+            evaluation_strategy="steps",
+            num_train_epochs=num_epochs,
+            gradient_checkpointing=True,
+            fp16=True,
+            save_steps=400,
+            eval_steps=1000,
+            logging_steps=100,
+            learning_rate=3e-4,
+            warmup_steps=500,
+            save_total_limit=2,
+            push_to_hub=False,
+        )
+        model.freeze_feature_extractor()
+
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            compute_metrics=compute_metrics,
+            train_dataset=dataset["train"],
+            eval_dataset=dataset["test"],
+            tokenizer=processor.feature_extractor,
+        )
+
+        trainer.train(resume_from_checkpoint=True)
+
+        def preprocess_function(examples):
+            audio_arrays = [x["array"] for x in examples["audio"]]
+            inputs = feature_extractor(
+                audio_arrays, sampling_rate=feature_extractor.sampling_rate, max_length=16000, truncation=True
+            )
+            return inputs
