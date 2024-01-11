@@ -2,9 +2,12 @@ import os
 import random
 import numpy as np
 import torch
+from torch import utils
 from transformers import AutoConfig, Wav2Vec2FeatureExtractor, TrainingArguments, Trainer, AutoModelForAudioClassification, AutoFeatureExtractor
 from models.hubert import HubertEmotion
+from models.tcnn import LightTCNN
 import evaluate
+import lightning as L
 
 accuracy = evaluate.load("accuracy")
 
@@ -30,7 +33,7 @@ def preprocess_function(examples):
     )
     return inputs
 
-def emotion_classification_hubert(model_name, dataset, output_dir, batch_size, num_epochs,train_test):
+def emotion_classification_pretrained(model_name, dataset, output_dir, batch_size, num_epochs,train_test):
     config = AutoConfig.from_pretrained(pretrained_model_name_or_path=model_name)
     #hubert_emotion = HubertEmotion.from_pretrained(model_name,config=config).to(device)
     labels = dataset["train"].features["label"].names
@@ -79,3 +82,12 @@ def emotion_classification_hubert(model_name, dataset, output_dir, batch_size, n
         )
 
         trainer.train(resume_from_checkpoint=True)
+
+def train_torch_model(model_name, dataset, output_dir, batch_size, num_epochs,train_test):
+    if train_test == 'train':
+        encoded_dataset = dataset.map(preprocess_function, remove_columns="audio", batched=True)
+        train_loader = utils.data.DataLoader(encoded_dataset["train"].with_format("torch", device=device))
+        if model_name == 'tcnn':
+            model = LightTCNN
+            trainer = L.Trainer(limit_train_batches=batch_size, max_epochs=num_epochs)
+            trainer.fit(model=model, train_dataloaders=train_loader)

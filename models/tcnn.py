@@ -1,6 +1,6 @@
-import torch
-import torch.nn as nn
+from torch import nn, optim, utils
 from torch.nn.utils import weight_norm
+import lightning as L
 
 
 class TemporalBlock(nn.Module):
@@ -8,7 +8,7 @@ class TemporalBlock(nn.Module):
         super(TemporalBlock, self).__init__()
         self.conv1 = weight_norm(nn.Conv2d(n_inputs, n_outputs, (1, kernel_size),
                                            stride=stride, padding=0, dilation=dilation))
-        self.pad = torch.nn.ZeroPad2d((padding, 0, 0, 0))
+        self.pad = nn.ZeroPad2d((padding, 0, 0, 0))
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
         self.conv2 = weight_norm(nn.Conv2d(n_outputs, n_outputs, (1, kernel_size),
@@ -48,3 +48,21 @@ class TemporalConvNet(nn.Module):
 
     def forward(self, x):
         return self.net(x)
+
+
+class LightTCNN(L.LightningModule):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        x = x.view(x.size(0), -1)
+        z = self.model(x)
+        loss = nn.functional.mse_loss(z, x)
+        return loss
+
+    def configure_optimizers(self):
+        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        return optimizer
+
