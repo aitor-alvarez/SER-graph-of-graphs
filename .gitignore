@@ -9,3 +9,4 @@ wandb/
 txt_OPI.py
 pretrained
 pretrained*
+lightning_logs

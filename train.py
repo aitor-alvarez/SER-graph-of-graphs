@@ -5,7 +5,7 @@ import torch
 from torch import utils
 from transformers import AutoConfig, Wav2Vec2FeatureExtractor, TrainingArguments, Trainer, AutoModelForAudioClassification, AutoFeatureExtractor
 from models.hubert import HubertEmotion
-from models.tcnn import LightTCNN
+from models.tcnn import LightTCNN, TemporalConvNet
 import evaluate
 import lightning as L
 
@@ -29,7 +29,7 @@ def compute_metrics(eval_pred):
 def preprocess_function(examples):
     audio_arrays = [x["array"] for x in examples["audio"]]
     inputs = feature_extractor(
-        audio_arrays, sampling_rate=feature_extractor.sampling_rate, max_length=16000, truncation=True
+        audio_arrays, sampling_rate=feature_extractor.sampling_rate, max_length=16000, padding=True ,truncation=True
     )
     return inputs
 
@@ -86,8 +86,11 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
 def train_torch_model(model_name, dataset, output_dir, batch_size, num_epochs,train_test):
     if train_test == 'train':
         encoded_dataset = dataset.map(preprocess_function, remove_columns="audio", batched=True)
-        train_loader = utils.data.DataLoader(encoded_dataset["train"].with_format("torch", device=device))
+        train_data = encoded_dataset["train"].select_columns(['label', 'input_values'])
+        train_loader = utils.data.DataLoader(train_data.with_format("torch", device=device), batch_size=int(batch_size), shuffle=True)
         if model_name == 'tcnn':
-            model = LightTCNN
-            trainer = L.Trainer(limit_train_batches=batch_size, max_epochs=num_epochs)
+            tcnn = TemporalConvNet(16000, [64])
+            print(tcnn.parameters())
+            model = LightTCNN(tcnn)
+            trainer = L.Trainer(limit_train_batches=int(batch_size), max_epochs=100)
             trainer.fit(model=model, train_dataloaders=train_loader)

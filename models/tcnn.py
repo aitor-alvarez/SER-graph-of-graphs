@@ -27,6 +27,7 @@ class TemporalBlock(nn.Module):
             self.downsample.weight.data.normal_(0, 0.01)
 
     def forward(self, x):
+        print(x.shape)
         out = self.net(x.unsqueeze(2)).squeeze(2)
         res = x if self.downsample is None else self.downsample(x)
         return self.relu(out + res)
@@ -56,13 +57,14 @@ class LightTCNN(L.LightningModule):
         self.model = model
 
     def training_step(self, batch, batch_idx):
-        x, y = batch
+        x = batch["input_values"]
+        print(x.size)
         x = x.view(x.size(0), -1)
         z = self.model(x)
         loss = nn.functional.mse_loss(z, x)
         return loss
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = optim.Adam(self.parameters(list(self.model.parameters())), lr=1e-3)
         return optimizer
 
