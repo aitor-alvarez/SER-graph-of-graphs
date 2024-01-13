@@ -1,11 +1,8 @@
-import os
-import random
 import numpy as np
 import torch
 from torch import utils
 from transformers import AutoConfig, Wav2Vec2FeatureExtractor, TrainingArguments, Trainer, AutoModelForAudioClassification, AutoFeatureExtractor
-from models.hubert import HubertEmotion
-from models.tcnn import LightTCNN, TemporalConvNet
+from models.resnet50_blstm import LightResnet, ResnetBLSTM, Bottleneck
 import evaluate
 import lightning as L
 
@@ -32,6 +29,26 @@ def preprocess_function(examples):
         audio_arrays, sampling_rate=feature_extractor.sampling_rate, max_length=16000, padding=True ,truncation=True
     )
     return inputs
+
+
+def pad_sequence(batch):
+    # Make all tensor in a batch the same length by padding with zeros
+    batch = [item.t() for item in batch]
+    batch = torch.nn.utils.rnn.pad_sequence(batch, batch_first=True, padding_value=0.)
+    return batch.permute(0, 2, 1)
+
+
+def collate_fn(batch):
+    tensors, targets = [], []
+    for b  in batch:
+        tensors += [b['audio']['array']]
+        targets += [b['label']]
+
+    # Group the list of tensors into a batched tensor
+    tensors = pad_sequence(tensors)
+    targets = torch.stack(targets)
+
+    return tensors, targets
 
 def emotion_classification_pretrained(model_name, dataset, output_dir, batch_size, num_epochs,train_test):
     config = AutoConfig.from_pretrained(pretrained_model_name_or_path=model_name)
@@ -85,12 +102,11 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
 
 def train_torch_model(model_name, dataset, output_dir, batch_size, num_epochs,train_test):
     if train_test == 'train':
-        encoded_dataset = dataset.map(preprocess_function, remove_columns="audio", batched=True)
-        train_data = encoded_dataset["train"].select_columns(['label', 'input_values'])
-        train_loader = utils.data.DataLoader(train_data.with_format("torch", device=device), batch_size=int(batch_size), shuffle=True)
-        if model_name == 'tcnn':
-            tcnn = TemporalConvNet(16000, [64])
-            print(tcnn.parameters())
-            model = LightTCNN(tcnn)
-            trainer = L.Trainer(limit_train_batches=int(batch_size), max_epochs=100)
+        train_data = dataset["train"].select_columns(['audio', 'label'])
+        train_loader = utils.data.DataLoader(train_data.with_format("torch", device=device), batch_size=int(batch_size), shuffle=True, collate_fn=collate_fn)
+        if model_name == 'resblstm':
+            resnet = ResnetBLSTM(Bottleneck, [3, 6, 3])
+            print(resnet.parameters())
+            model = LightResnet(resnet)
+            trainer = L.Trainer(limit_train_batches=int(batch_size), max_epochs=int(num_epochs))
             trainer.fit(model=model, train_dataloaders=train_loader)

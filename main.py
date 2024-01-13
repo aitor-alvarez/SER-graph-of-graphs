@@ -3,7 +3,7 @@ import os
 from datasets import load_dataset
 from train import *
 
-models = ['tcnn', 'resnet', 'gnn']
+models = ['resblstm', 'gnn']
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
