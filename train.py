@@ -35,12 +35,12 @@ def pad_sequence(batch):
     # Make all tensor in a batch the same length by padding with zeros
     batch = [item.t() for item in batch]
     batch = torch.nn.utils.rnn.pad_sequence(batch, batch_first=True, padding_value=0.)
-    return batch.permute(0, 2, 1)
+    return batch
 
 
 def collate_fn(batch):
     tensors, targets = [], []
-    for b  in batch:
+    for b in batch:
         tensors += [b['audio']['array']]
         targets += [b['label']]
 
@@ -107,6 +107,7 @@ def train_torch_model(model_name, dataset, output_dir, batch_size, num_epochs,tr
         if model_name == 'resblstm':
             resnet = ResnetBLSTM(Bottleneck, [3, 6, 3])
             print(resnet.parameters())
+
             model = LightResnet(resnet)
             trainer = L.Trainer(limit_train_batches=int(batch_size), max_epochs=int(num_epochs))
             trainer.fit(model=model, train_dataloaders=train_loader)
