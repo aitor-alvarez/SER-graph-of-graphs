@@ -106,8 +106,6 @@ def train_torch_model(model_name, dataset, output_dir, batch_size, num_epochs,tr
         train_loader = utils.data.DataLoader(train_data.with_format("torch", device=device), batch_size=int(batch_size), shuffle=True, collate_fn=collate_fn)
         if model_name == 'resblstm':
             resnet = ResnetBLSTM(Bottleneck, [3, 6, 3])
-            print(resnet.parameters())
-
             model = LightResnet(resnet)
-            trainer = L.Trainer(limit_train_batches=int(batch_size), max_epochs=int(num_epochs))
+            trainer = L.Trainer(limit_train_batches=batch_size, max_epochs=num_epochs)
             trainer.fit(model=model, train_dataloaders=train_loader)

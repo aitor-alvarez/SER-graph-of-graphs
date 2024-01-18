@@ -107,8 +107,7 @@ class LightResnet(L.LightningModule):
         self.model = model
 
     def training_step(self, batch, batch_idx):
-        x = batch
-        print(x.size)
+        x = batch[0]
         x = x.view(x.size(0), -1)
         print(x.size)
         z = self.model(x)
