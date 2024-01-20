@@ -1,4 +1,5 @@
 import lightning as L
+import torch
 from torch import nn, optim
 import torch.nn.functional as F
 from torchaudio import transforms
@@ -75,8 +76,9 @@ class ResnetBLSTM(nn.Module):
         self.layer1 = self._make_layer(block, 128, num_blocks[0], stride=2)
         self.layer2 = self._make_layer(block, 256, num_blocks[1], stride=2)
         self.layer3 = self._make_layer(block, 512, num_blocks[2], stride=2)
-        self.blstm = nn.LSTM(4590, 1000, batch_first=True, bidirectional=True)
-        self.linear = nn.Linear(512*block.expansion, num_classes)
+        self.blstm = nn.LSTM(2048, 1000, batch_first=True, bidirectional=True)
+        self.flatten = nn.Flatten()
+        self.linear = nn.Linear(16384, num_classes)
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
@@ -88,18 +90,19 @@ class ResnetBLSTM(nn.Module):
 
     def forward(self, x):
         x = x.unsqueeze(1)
-        print(x.size)
         in_spec = self.speclayer(x)
         out = F.relu(self.bn1(self.conv1(in_spec)))
         out = self.layer1(out)
         out = self.layer2(out)
         out = self.layer3(out)
         out = F.avg_pool2d(out, 4)
-        out = out.view(out.size(0), -1)
-        blstm_out, hidden = self.blstm(out)
-        in_ffn = self.flatten(blstm_out)
+        #batch, time = out.size()[:2]
+        #out = out.reshape(batch, time, -1)
+        #out, hidden = self.blstm(out)
+        in_ffn = self.flatten(out)
         output = self.linear(in_ffn)
-        return F.log_softmax(output, dim=1)
+        soft = F.log_softmax(output, dim=1)
+        return soft
 
 class LightResnet(L.LightningModule):
     def __init__(self, model):
@@ -107,14 +110,13 @@ class LightResnet(L.LightningModule):
         self.model = model
 
     def training_step(self, batch, batch_idx):
-        x = batch[0]
+        x = batch['input_values']
+        l= batch['label']
         x = x.view(x.size(0), -1)
-        print(x.size)
         z = self.model(x)
-        loss = nn.functional.mse_loss(z, x)
+        loss = nn.functional.mse_loss(z.type(torch.DoubleTensor).to("cuda"), l)
         return loss
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(list(self.model.parameters())), lr=1e-3)
         return optimizer
-

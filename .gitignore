@@ -10,3 +10,5 @@ txt_OPI.py
 pretrained
 pretrained*
 lightning_logs
+IEMOCAP/
+CNN-models/
