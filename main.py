@@ -1,6 +1,6 @@
 import argparse
 from datasets import load_dataset
-from train import *
+from train_encoder import *
 
 models = ['resblstm', 'gnn']
 

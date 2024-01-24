@@ -2,8 +2,7 @@ import numpy as np
 import torch
 from torch import utils, optim
 from transformers import AutoConfig, Wav2Vec2FeatureExtractor, TrainingArguments, Trainer, AutoModelForAudioClassification, AutoFeatureExtractor
-from models.resnet50_blstm import LightResnet, ResnetBLSTM, Bottleneck
-from models.ResBLSTM import *
+from models.resnet import LightResnet, Resnet, Bottleneck
 import evaluate
 import lightning as L
 
@@ -106,13 +105,13 @@ def train_torch_model(model_name, dataset, output_dir, batch_size, num_epochs,tr
         train_loader = utils.data.DataLoader(encoded_dataset["train"].with_format("torch", device=device), batch_size=int(batch_size), shuffle=True)
         test_loader = utils.data.DataLoader(encoded_dataset["test"].with_format("torch", device=device), batch_size=1)
         if model_name == 'resblstm':
-            model = ResnetBLSTM(Bottleneck, [3, 6, 3])
-            #model = ResidualLSTM(Resblock, [2])
+            model = Resnet(Bottleneck, [3, 6, 3])
+            model.to(device)
             train_model(model, train_loader)
+            test_model(model, test_loader)
 
 
-def train_model(model, trainloader):
-    model.to(device)
+def train_model(model, train_loader):
     learning_rate = 0.0001
     num_epochs = 40
     epochs_stop = 2
@@ -120,13 +119,13 @@ def train_model(model, trainloader):
     no_improve = 0
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    total_step = len(trainloader)*num_epochs
+    total_step = len(train_loader)*num_epochs
 
     i = 0
     for epoch in range(num_epochs):
         epoch_loss=[]
         epoch_acc=[]
-        for train in trainloader:
+        for train in train_loader:
             i+=1
             sounds = train['input_values']
             sounds.to(device)
@@ -146,7 +145,7 @@ def train_model(model, trainloader):
             acc = accuracy.compute(predictions=predicted, references=labels)
             epoch_acc.append(acc['accuracy'])
 
-            if i % 100 in [0, 100]:
+            if i % 100 in [0, 1000]:
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, Accuracy: {:.2f}%'
                       .format(epoch + 1, num_epochs, i , total_step, sum(epoch_loss)/len(epoch_loss),
                               (sum(epoch_acc)/len(epoch_acc))*100))
@@ -163,7 +162,7 @@ def train_model(model, trainloader):
 
 
 def test_model(model, test_loader):
-    model.load_state_dict(torch.load('CNN-models/ResnetBLSTM'))
+    model.load_state_dict(torch.load('CNN-models/Resnet'))
     model.eval()
     results=[]
     with torch.no_grad():

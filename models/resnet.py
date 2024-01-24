@@ -64,9 +64,9 @@ class Bottleneck(nn.Module):
         return out
 
 
-class ResnetBLSTM(nn.Module):
+class Resnet(nn.Module):
     def __init__(self, block, num_blocks, num_classes=4):
-        super(ResnetBLSTM, self).__init__()
+        super(Resnet, self).__init__()
         self.in_channels = 128
         self.speclayer = transforms.MelSpectrogram(pad=1)
 
@@ -75,8 +75,7 @@ class ResnetBLSTM(nn.Module):
         self.bn1 = nn.BatchNorm2d(128)
         self.layer1 = self._make_layer(block, 128, num_blocks[0], stride=2)
         self.layer2 = self._make_layer(block, 256, num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(block, 512, num_blocks[2], stride=2)
-        self.blstm = nn.LSTM(2048, 1000, batch_first=True, bidirectional=True)
+        self.layer3 = self._make_layer(block, 512, num_blocks[2], stride=1)
         self.flatten = nn.Flatten()
         self.linear = nn.Linear(16384, num_classes)
 
@@ -96,9 +95,9 @@ class ResnetBLSTM(nn.Module):
         out = self.layer2(out)
         out = self.layer3(out)
         out = F.avg_pool2d(out, 4)
-        #batch, time = out.size()[:2]
-        #out = out.reshape(batch, time, -1)
-        #out, hidden = self.blstm(out)
+        batch, time = out.size()[:2]
+        out = out.reshape(batch, time, -1)
+        out, hidden = self.blstm(out)
         in_ffn = self.flatten(out)
         output = self.linear(in_ffn)
         soft = F.log_softmax(output, dim=1)
@@ -114,7 +113,7 @@ class LightResnet(L.LightningModule):
         l= batch['label']
         x = x.view(x.size(0), -1)
         z = self.model(x)
-        loss = nn.functional.mse_loss(z.type(torch.DoubleTensor).to("cuda"), l)
+        loss = nn.functional.mse_loss(z.type(torch.DoubleTensor).cuda(), l)
         return loss
 
     def configure_optimizers(self):
