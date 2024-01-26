@@ -10,14 +10,14 @@ import networkx as nx
 from torch_geometric.utils import from_networkx
 
 
-def generate_dataset(audio_dir, emo='neu'):
+def generate_dataset(audio_dir, emo='ang'):
 	filename = emo
-	contours, files, pitches, inds= create_contours(audio_dir)
+	contours, files, pitches, inds= create_contours(audio_dir+emo+'/')
 	pattern_length = 8
-	Gapbide(contours, 12, 0, 0, pattern_length, audio_dir+filename).run()
-	dictionary = create_dictionary(filename+'_intervals.txt')
+	Gapbide(contours, 12, 0, 0, pattern_length, audio_dir+emo+'/'+filename).run()
+	dictionary = create_dictionary(audio_dir+emo+'/'+filename+'_intervals.txt')
 	#create_patterns_audio_dataset(dictionary, contours, audio_dir, files)
-	create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, audio_dir+filename, audio_dir+filename+'/patterns/')
+	create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, audio_dir+filename+'/', audio_dir+filename+'/patterns/')
 	print("Dataset generation completed")
 	return None
 
