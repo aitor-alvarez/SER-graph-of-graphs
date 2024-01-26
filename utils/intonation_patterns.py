@@ -10,13 +10,14 @@ import networkx as nx
 from torch_geometric.utils import from_networkx
 
 
-def generate_dataset(audio_dir, emo='neutral'):
+def generate_dataset(audio_dir, emo='neu'):
 	filename = emo
 	contours, files, pitches, inds= create_contours(audio_dir)
 	pattern_length = 8
-	Gapbide(contours, 12, 0, 0, pattern_length, filename).run()
+	Gapbide(contours, 12, 0, 0, pattern_length, audio_dir+filename).run()
 	dictionary = create_dictionary(filename+'_intervals.txt')
-	create_patterns_audio_dataset(dictionary, contours, audio_dir, files)
+	#create_patterns_audio_dataset(dictionary, contours, audio_dir, files)
+	create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, audio_dir+filename, audio_dir+filename+'/patterns/')
 	print("Dataset generation completed")
 	return None
 
@@ -26,7 +27,7 @@ def create_contours(audio_dir):
 	contours, inds = get_interval_contour(fqs)
 	return contours, files, pitches, inds
 
-###Creates a graph based on the prosodic similarity of the speech utterances.
+###Creates a graph based on the prosodic patterns of the speech utterances.
 def generate_graph(contours, files):
 	dictionary = create_nodes_dictionary('patterns/train/')
 	G = nx.Graph()
@@ -82,7 +83,6 @@ def get_f0_praat(audio_dir):
 def get_interval_contour(fqs):
 	contours = []
 	inds= []
-	carry =0
 	for f in fqs:
 		contour = []
 		ind = []
@@ -175,9 +175,11 @@ def get_interval(dist):
 			return '12'
 
 
-def create_graph(G, type='cycle'):
+def create_graph(G, type='path'):
 	if type == 'cycle':
 		e = nx.cycle_graph(G)
+	elif type == 'path':
+		e = nx.path_graph(G)
 	G.add_edges_from(e.edges)
 	return G
 
@@ -209,3 +211,30 @@ def slice_audio(slice_from, slice_to, path, audio_file, path_out):
 		seg.export(path_out + audio_file, format="mp3")
 	except:
 		print(f"ERROR PROCESSING AUDIO FILE: {path}")
+
+
+#Takes as the input a dictionary of (intonation) patterns and contours and slices audio files based on the patterns
+# contained in the dictionary. At the same time it saves the co-occurences of patterns in an adjacency list to
+#create a graph.
+def create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, path, path_out_audio):
+	if not os.path.exists(path_out_audio):
+		os.mkdir(path_out_audio)
+	for i, c in enumerate(contours):
+		G = nx.Graph()
+		path2 = path+files[i]
+		for d in dictionary:
+			if len(d) > len(c):
+				continue
+			else:
+				sub = find_sublist(d, c)
+			if sub:
+				for s in sub:
+					name = files[i].replace('.wav', '_')+str(uuid.uuid4())+'.wav'
+					ini = inds[i][s[0]][0]+1
+					end = inds[i][s[1]][0]+1
+					slice_audio(pitches[i].get_time_from_frame_number(ini), pitches[i].get_time_from_frame_number(end), path2, name, path_out_audio)
+					G.add_node(name, y=path_out_audio+name)
+		if G.number_of_nodes()>0:
+			graph = create_graph(G)
+			graph = from_networkx(graph)
+			torch.save(graph, path_out_audio +files[i].replace('.wav', '')+ '.pt')
