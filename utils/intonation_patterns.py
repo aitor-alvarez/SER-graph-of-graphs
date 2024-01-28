@@ -13,11 +13,11 @@ from torch_geometric.utils import from_networkx
 def generate_dataset(audio_dir, emo='ang'):
 	filename = emo
 	contours, files, pitches, inds= create_contours(audio_dir+emo+'/')
-	pattern_length = 8
-	Gapbide(contours, 12, 0, 0, pattern_length, audio_dir+emo+'/'+filename).run()
+	pattern_length = 10
+	Gapbide(contours, 5,0, 0, pattern_length, audio_dir+emo+'/'+filename).run()
 	dictionary = create_dictionary(audio_dir+emo+'/'+filename+'_intervals.txt')
-	#create_patterns_audio_dataset(dictionary, contours, audio_dir, files)
-	create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, audio_dir+filename+'/', audio_dir+filename+'/patterns/')
+	create_patterns_audio_dataset(dictionary, contours, audio_dir+emo+'/', files)
+	#create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, audio_dir+filename+'/', audio_dir+filename+'/patterns/')
 	print("Dataset generation completed")
 	return None
 
@@ -67,7 +67,7 @@ def slice_audio(slice_from, slice_to, path, audio_file, path_out):
 	try:
 		seg = audio[slice_from * 1000:slice_to * 1000]
 		seg.set_channels(2)
-		seg.export(path_out+audio_file, format="mp3")
+		seg.export(path_out+audio_file, format="wav")
 	except:
 		print(f"ERROR PROCESSING AUDIO FILE: {path}")
 
@@ -83,16 +83,41 @@ def get_f0_praat(audio_dir):
 def get_interval_contour(fqs):
 	contours = []
 	inds= []
+
 	for f in fqs:
+		carry = 0
+		direction = None
 		contour = []
 		ind = []
 		for i in range(len(f)-1):
 			if i < len(f):
 				if f[i] == 0 and f[i+1] == 0:
-					continue
+					contour.append(('None', 'None'))
+					ind.append((i, i + 1))
+				elif f[i] == 0 and f[i+1] != 0:
+					contour.append(('None', f[i+1]))
+					ind.append((i, i + 1))
+				elif f[i] != 0 and f[i+1] == 0:
+					contour.append((f[i], 'None'))
+					ind.append((i, i + 1))
 				else:
-					dist = 1200 * np.log2(f[i+1]/f[i])
-					dist = get_interval(dist)
+					if f[i]-f[i+1]<0: new_dir = '-'
+					if f[i]-f[i+1]>=0: new_dir = '+'
+					dist_cents = 1200 * np.log2(f[i+1]/f[i])
+					if carry > 0 : dist_cents +=carry
+					dist = get_contour(dist_cents)
+					if dist == '0':
+						if direction == new_dir:
+							carry += dist_cents
+						else:
+							direction = None
+							carry = 0
+					elif dist !='0':
+						carry = 0
+						if direction == new_dir:
+							direction = direction
+						else:
+							direction = None
 					contour.append(dist)
 					ind.append((i, i+1))
 		contours.append(contour)
@@ -196,7 +221,7 @@ def create_patterns_audio_dataset(dictionary, contours, path, files):
 				sub = find_sublist(d, c)
 			if sub:
 				for s in sub:
-					name = files[i].replace('.wav', '_')+str(uuid.uuid4())+'.mp3'
+					name = files[i].replace('.wav', '_')+str(uuid.uuid4())+'.wav'
 					slice_audio(time[s[0]], time[s[1]], path+files[i], name, path+'patterns/')
 	print("Patterns generated")
 	return None
@@ -208,7 +233,7 @@ def slice_audio(slice_from, slice_to, path, audio_file, path_out):
 		#we add 100 ms extra at the beginning and at the end.
 		seg = audio[slice_from * 900:slice_to * 1100]
 		seg.set_channels(2)
-		seg.export(path_out + audio_file, format="mp3")
+		seg.export(path_out + audio_file, format="wav")
 	except:
 		print(f"ERROR PROCESSING AUDIO FILE: {path}")
 
