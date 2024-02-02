@@ -7,7 +7,7 @@ from utils.gapbide import Gapbide
 from utils.process_file import create_dictionary, create_nodes_dictionary
 import uuid
 import networkx as nx
-from torch_geometric.utils import from_networkx
+from torch_geometric.utils import from_networkx, to_networkx
 
 
 def generate_dataset(audio_dir, emo='ang'):
@@ -18,7 +18,7 @@ def generate_dataset(audio_dir, emo='ang'):
 	dictionary = create_dictionary(audio_dir+emo+'/'+filename+'_intervals.txt')
 	#create_patterns_audio_dataset(dictionary, contours, audio_dir+emo+'/', files)
 	create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, audio_dir+filename+'/', audio_dir+filename+'/patterns/')
-	print("Dataset generation completed")
+	print("Graph generation completed")
 	return None
 
 
@@ -42,13 +42,12 @@ def generate_graph(contours, files):
 				sub = find_sublist(d, c)
 			if sub:
 				nodes.append(nodename)
-				G.add_node(nodename, node_id=nodename, y=nodename[nodename.rfind('/')-3:nodename.rfind('/')])
+
 		g = nx.Graph()
 		g.add_nodes_from(nodes)
 		sg= create_graph(g)
-		G.add_edges_from(sg.edges, weight=1.00)
 		node_list.append(nodes)
-	graph = add_edge_attributes(G, node_list)
+	graph = add_edge_attributes(sg, node_list)
 	gp= from_networkx(graph)
 	torch.save(gp, 'patterns/graph.pt')
 
@@ -201,8 +200,7 @@ def create_graph(G, type='path'):
 	if type == 'cycle':
 		e = nx.cycle_graph(G)
 	elif type == 'path':
-		e = nx.path_graph(G)
-	G.add_edges_from(e.edges)
+		G = nx.path_graph(G)
 	return G
 
 
@@ -245,6 +243,7 @@ def create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, pa
 		G = nx.Graph()
 		path2 = path+files[i]
 		for d in dictionary:
+			prev =None
 			if len(d) > len(c):
 				continue
 			else:
@@ -252,11 +251,16 @@ def create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, pa
 			if sub:
 				for s in sub:
 					name = files[i].replace('.wav', '_')+str(uuid.uuid4())+'.wav'
+					if prev is not None:
+						G.add_node(name, y=path_out_audio + name)
+						G.add_edge(prev, name)
+						prev = name
+					else:
+						G.add_node(name, y=path_out_audio + name)
+						prev = name
 					ini = inds[i][s[0]][0]+1
 					end = inds[i][s[1]][0]+1
 					slice_audio(pitches[i].get_time_from_frame_number(ini), pitches[i].get_time_from_frame_number(end), path2, name, path_out_audio)
-					G.add_node(name, y=path_out_audio+name)
 		if G.number_of_nodes()>0:
-			graph = create_graph(G)
-			graph = from_networkx(graph)
+			graph = from_networkx(G)
 			torch.save(graph, path_out_audio +files[i].replace('.wav', '')+ '.pt')
