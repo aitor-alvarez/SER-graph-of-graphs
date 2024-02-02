@@ -13,11 +13,11 @@ from torch_geometric.utils import from_networkx
 def generate_dataset(audio_dir, emo='ang'):
 	filename = emo
 	contours, files, pitches, inds= create_contours(audio_dir+emo+'/')
-	pattern_length = 10
-	Gapbide(contours, 5,0, 0, pattern_length, audio_dir+emo+'/'+filename).run()
+	pattern_length = 6
+	Gapbide(contours, 10,0, 0, pattern_length, audio_dir+emo+'/'+filename).run()
 	dictionary = create_dictionary(audio_dir+emo+'/'+filename+'_intervals.txt')
-	create_patterns_audio_dataset(dictionary, contours, audio_dir+emo+'/', files)
-	#create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, audio_dir+filename+'/', audio_dir+filename+'/patterns/')
+	#create_patterns_audio_dataset(dictionary, contours, audio_dir+emo+'/', files)
+	create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, audio_dir+filename+'/', audio_dir+filename+'/patterns/')
 	print("Dataset generation completed")
 	return None
 
@@ -92,20 +92,17 @@ def get_interval_contour(fqs):
 		for i in range(len(f)-1):
 			if i < len(f):
 				if f[i] == 0 and f[i+1] == 0:
-					contour.append(('None', 'None'))
-					ind.append((i, i + 1))
+					continue
 				elif f[i] == 0 and f[i+1] != 0:
-					contour.append(('None', f[i+1]))
-					ind.append((i, i + 1))
+					continue
 				elif f[i] != 0 and f[i+1] == 0:
-					contour.append((f[i], 'None'))
-					ind.append((i, i + 1))
+					continue
 				else:
 					if f[i]-f[i+1]<0: new_dir = '-'
 					if f[i]-f[i+1]>=0: new_dir = '+'
 					dist_cents = 1200 * np.log2(f[i+1]/f[i])
 					if carry > 0 : dist_cents +=carry
-					dist = get_contour(dist_cents)
+					dist = get_interval(dist_cents)
 					if dist == '0':
 						if direction == new_dir:
 							carry += dist_cents
