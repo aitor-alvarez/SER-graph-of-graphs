@@ -251,16 +251,12 @@ def create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, pa
 			if sub:
 				for s in sub:
 					name = files[i].replace('.wav', '_')+str(uuid.uuid4())+'.wav'
-					if prev is not None:
-						G.add_node(name, y=path_out_audio + name)
-						G.add_edge(prev, name)
-						prev = name
-					else:
-						G.add_node(name, y=path_out_audio + name)
-						prev = name
+					G.add_node(name, y=path_out_audio + name)
 					ini = inds[i][s[0]][0]+1
 					end = inds[i][s[1]][0]+1
 					slice_audio(pitches[i].get_time_from_frame_number(ini), pitches[i].get_time_from_frame_number(end), path2, name, path_out_audio)
 		if G.number_of_nodes()>0:
+			e = nx.path_graph(G.nodes)
+			G.add_edges_from(e.edges)
 			graph = from_networkx(G)
 			torch.save(graph, path_out_audio +files[i].replace('.wav', '')+ '.pt')
