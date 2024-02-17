@@ -66,7 +66,7 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
         num_labels=num_labels,
         label2id=label2id,
         id2label=id2label,
-    ).to(device)
+    )
 
     if train_test == 'train':
         training_args = TrainingArguments(

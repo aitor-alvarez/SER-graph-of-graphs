@@ -10,7 +10,7 @@ import networkx as nx
 from torch_geometric.utils import from_networkx, to_networkx
 
 
-def generate_dataset(audio_dir, emo='ang'):
+def generate_initial_graph(audio_dir, emo='ang'):
 	filename = emo
 	contours, files, pitches, inds= create_contours(audio_dir+emo+'/')
 	pattern_length = 6
