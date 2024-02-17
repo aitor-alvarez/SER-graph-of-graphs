@@ -1,7 +1,7 @@
 import argparse
 from datasets import load_dataset
 from train_encoder import *
-from train_local_graphs import *
+from create_multiGraph import *
 
 models = ['resblstm', 'gnn']
 
