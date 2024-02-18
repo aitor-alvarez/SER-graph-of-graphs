@@ -8,7 +8,9 @@ from utils.process_file import create_dictionary, create_nodes_dictionary
 import uuid
 import networkx as nx
 from torch_geometric.utils import from_networkx, to_networkx
+from utils.intonation_patterns import preprocess_function, feature_extractor
 
+SPEECH_MODEL_PATH='.'
 
 def generate_initial_graph(audio_dir, emo='ang'):
 	filename = emo
@@ -17,7 +19,7 @@ def generate_initial_graph(audio_dir, emo='ang'):
 	Gapbide(contours, 10,0, 0, pattern_length, audio_dir+emo+'/'+filename).run()
 	dictionary = create_dictionary(audio_dir+emo+'/'+filename+'_intervals.txt')
 	#create_patterns_audio_dataset(dictionary, contours, audio_dir+emo+'/', files)
-	create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, audio_dir+filename+'/', audio_dir+filename+'/patterns/')
+	create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, audio_dir+filename+'/', audio_dir+filename+'/patterns/', emo)
 	print("Graph generation completed")
 	return None
 
@@ -236,14 +238,13 @@ def slice_audio(slice_from, slice_to, path, audio_file, path_out):
 #Takes as the input a dictionary of (intonation) patterns and contours and slices audio files based on the patterns
 # contained in the dictionary. At the same time it saves the co-occurences of patterns in an adjacency list to
 #create a graph.
-def create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, path, path_out_audio):
+def create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, path, path_out_audio, emo):
 	if not os.path.exists(path_out_audio):
 		os.mkdir(path_out_audio)
 	for i, c in enumerate(contours):
 		G = nx.Graph()
 		path2 = path+files[i]
 		for d in dictionary:
-			prev =None
 			if len(d) > len(c):
 				continue
 			else:
@@ -251,12 +252,33 @@ def create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, pa
 			if sub:
 				for s in sub:
 					name = files[i].replace('.wav', '_')+str(uuid.uuid4())+'.wav'
-					G.add_node(name, y=path_out_audio + name)
 					ini = inds[i][s[0]][0]+1
 					end = inds[i][s[1]][0]+1
 					slice_audio(pitches[i].get_time_from_frame_number(ini), pitches[i].get_time_from_frame_number(end), path2, name, path_out_audio)
+					G.add_node(name, y=path_out_audio + name)
 		if G.number_of_nodes()>0:
-			e = nx.path_graph(G.nodes)
-			G.add_edges_from(e.edges)
-			graph = from_networkx(G)
+			path_graph = nx.path_graph(G.nodes)
+			graph = from_networkx(path_graph)
 			torch.save(graph, path_out_audio +files[i].replace('.wav', '')+ '.pt')
+	return None
+
+
+def get_acoustic_feat(audio_file):
+	emb = []
+	if 'resblstm' in self.speech_encoder:
+		model = Resnet(Bottleneck, [3, 6, 3])
+		model.to(device)
+		model.load_state_dict(SPEECH_MODEL_PATH)
+		model.linear = torch.nn.Identity()
+		model.eval()
+		with torch.no_grad():
+			emb.append(model(b))
+	elif 'wav2vec' or 'hubert' in self.speech_encoder:
+		model = Wav2Vec2Model.from_pretrained(SPEECH_MODEL_PATH)
+		feature_extractor = AutoFeatureExtractor.from_pretrained(SPEECH_MODEL_PATH)
+		i = feature_extractor(audio_file, sampling_rate = feature_extractor.sampling_rate, max_length = 16000, padding = True,
+							  truncation = True, return_tensors=True)
+		with torch.no_grad():
+			output = model(i.input_values)
+		emb.app(output.last_hidden_state)
+	return emb
