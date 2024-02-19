@@ -122,7 +122,7 @@ def train_model(model, train_loader):
     total_step = len(train_loader)*num_epochs
 
     i = 0
-    for epoch in range(num_epochs):
+    for epoch in tqdm(range(num_epochs)):
         epoch_loss=[]
         epoch_acc=[]
         for train in train_loader:

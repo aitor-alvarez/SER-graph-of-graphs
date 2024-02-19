@@ -12,6 +12,8 @@ from utils.intonation_patterns import preprocess_function, feature_extractor
 
 SPEECH_MODEL_PATH='.'
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 def generate_initial_graph(audio_dir, emo='ang'):
 	filename = emo
 	contours, files, pitches, inds= create_contours(audio_dir+emo+'/')
@@ -255,7 +257,8 @@ def create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, pa
 					ini = inds[i][s[0]][0]+1
 					end = inds[i][s[1]][0]+1
 					slice_audio(pitches[i].get_time_from_frame_number(ini), pitches[i].get_time_from_frame_number(end), path2, name, path_out_audio)
-					G.add_node(name, y=path_out_audio + name)
+					speech_feat = get_acoustic_feat(path_out_audio + name)
+					G.add_node(name, x=speech_feat, y=emo)
 		if G.number_of_nodes()>0:
 			path_graph = nx.path_graph(G.nodes)
 			graph = from_networkx(path_graph)
@@ -274,11 +277,11 @@ def get_acoustic_feat(audio_file):
 		with torch.no_grad():
 			emb.append(model(b))
 	elif 'wav2vec' or 'hubert' in self.speech_encoder:
-		model = Wav2Vec2Model.from_pretrained(SPEECH_MODEL_PATH)
+		model = Wav2Vec2Model.from_pretrained(SPEECH_MODEL_PATH).to(device)
 		feature_extractor = AutoFeatureExtractor.from_pretrained(SPEECH_MODEL_PATH)
-		i = feature_extractor(audio_file, sampling_rate = feature_extractor.sampling_rate, max_length = 16000, padding = True,
+		feat = feature_extractor(audio_file, sampling_rate = feature_extractor.sampling_rate, max_length = 16000, padding = True,
 							  truncation = True, return_tensors=True)
 		with torch.no_grad():
-			output = model(i.input_values)
+			output = model(feat.input_values)
 		emb.app(output.last_hidden_state)
 	return emb

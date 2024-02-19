@@ -12,8 +12,8 @@ class GraphEmbedding(nn.Module):
         self.linear = nn.Linear(channels, num_classes)
         self.relu = nn.LeakyReLU()
 
-    def forward(self, x_embeddings, edge_index, weights, batch):
-        x = self.gconv1(x_embeddings, edge_index, weights)
+    def forward(self, x_embeddings, edge_index, batch):
+        x = self.gconv1(x_embeddings, edge_index)
         x = self.relu(x)
         x = F.dropout(x, training=self.training)
         x = self.gconv2(x, edge_index, weights)
