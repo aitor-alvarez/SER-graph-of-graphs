@@ -14,6 +14,8 @@ SPEECH_MODEL_PATH='.'
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+label2id = {'ang':1, 'hap':2, 'neu':3, 'sad':4}
+
 def generate_initial_graph(audio_dir, emo='ang'):
 	filename = emo
 	contours, files, pitches, inds= create_contours(audio_dir+emo+'/')
@@ -258,7 +260,7 @@ def create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, pa
 					end = inds[i][s[1]][0]+1
 					slice_audio(pitches[i].get_time_from_frame_number(ini), pitches[i].get_time_from_frame_number(end), path2, name, path_out_audio)
 					speech_feat = get_acoustic_feat(path_out_audio + name)
-					G.add_node(name, x=speech_feat, y=emo)
+					G.add_node(name, x=speech_feat, y=label2id[emo])
 		if G.number_of_nodes()>0:
 			path_graph = nx.path_graph(G.nodes)
 			graph = from_networkx(path_graph)
