@@ -7,6 +7,7 @@ from models.GraphEmbedding import GraphEmbedding
 from transformers import AutoFeatureExtractor
 from utils.loader import graph_loader
 from sklearn.model_selection import train_test_split
+from itertools import combinations
 import os
 
 #Path to the speech encoder, in this case Resnet, Whisper, or wav2vec.
@@ -80,24 +81,50 @@ class MultiGraph:
 				torch.save(model, GRAPH_MODEL_PATH)
 				break
 
-	def find_knn(self, nodes):
+	def find_knn(self, n):
+		edges_pos=[]
+		edges_neg=[]
 		n1 = n[:len(n) // 2]
 		n2 = n[len(n) // 2:]
 		xn1 = [n.x for n in n1]
 		xn2 = [n.x for n in n2]
-		kn = knn(xn1, xn2, len(n1-1))
-		return knn
+		kn = knn(xn1, xn2, len(n1)-1)
+		k1, k2 = train_test_split(kn, train_size=0.8, shuffle=False)
+		for i in k1:
+			edges_pos.append((n1[int(i[0])], n2[int(i[1])]))
+		for j in k2:
+			edges_neg.append((n1[int(j[0])], n2[int(j[1])]))
+		return edges_pos, edges_neg
 
+	def generate_pseudo_label(self, graph):
+		edges_pos = []
+		edges_neg = []
+		nodes = [n for n in graph.nodes(data=True) if g['y'] is not None]
+		nodesx = [n.x for n in nodes]
+		nodes_no = [n for n in graph.nodes(data=True) if g['y'] is None]
+		nodes_no_x= [n.x for n in nodes_no]
+		kn = knn(nodesx, nodes_no_x, len(nodes_no_x) - 1)
+		k1, k2 = train_test_split(kn, train_size=0.3, shuffle=False)
+		for i in k1:
+			edges_pos.append((nodes[int(i[0])], nodes_no[int(i[1])]))
+		for j in k2:
+			edges_neg.append((nodes[int(j[0])], nodes_no[int(j[1])]))
+		return edges_pos, edges_neg
 
 	def generate_edges(self, graph):
 		nodes_1 = [n for n in graph.nodes(data=True) if g['y'] == 1]
 		nodes_2 = [n for n in graph.nodes(data=True) if g['y'] == 2]
 		nodes_3 = [n for n in graph.nodes(data=True) if g['y'] == 3]
 		nodes_4 = [n for n in graph.nodes(data=True) if g['y'] == 4]
-		edges_1 = self.find_knn(nodes_1)
-		edges_2 = self.find_knn(nodes_2)
-		edges_3 = self.find_knn(nodes_3)
-		edges_4 = self.find_knn(nodes_4)
+		edges_1_pos, edges_1_neg = self.find_knn(nodes_1)
+		edges_2_pos,edges_2_neg  = self.find_knn(nodes_2)
+		edges_3_pos, edges_3_neg = self.find_knn(nodes_3)
+		edges_4_pos, edges_4_neg = self.find_knn(nodes_4)
+		epos = edges_1_pos+edges_2_pos+edges_3_pos+edges_4_pos
+		eneg = edges_1_neg+edges_2_neg+edges_3_neg+edges_4_neg
+		graph.add_edges_from(epos, weight=1)
+		graph.add_edges_from(eneg, weight=-1)
+		return graph
 
 	def generate_multigraph(self):
 		model = torch.load(GRAPH_MODEL_PATH)
@@ -107,6 +134,6 @@ class MultiGraph:
 			gemb = model(d.x, d.edge_index, d.batch)
 			graph.add_node(d.id, x=gemb, y=d.y)
 		for l in self.no_label_data:
-			gemb = model(d.x, d.edge_index, d.batch)
-			graph.add_node(d.id, x=gemb, y=None, z=d.y)
+			gemb = model(l.x, l.edge_index, l.batch)
+			graph.add_node(l.id, x=gemb, y=None, z=l.y)
 		multi_graph = self.generate_edges(graph)
