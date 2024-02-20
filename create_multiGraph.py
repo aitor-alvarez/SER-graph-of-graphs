@@ -6,6 +6,7 @@ from utils.loader import graph_loader
 from sklearn.model_selection import train_test_split
 import os
 from torch_geometric.utils import from_networkx
+import networkx as nx
 
 #Path to the speech encoder, in this case Resnet, Whisper, or wav2vec.
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -48,6 +49,7 @@ class MultiGraph:
 		epochs_stop = 3
 		no_improve = 0
 		acc_list = []
+		num_epochs = 40
 		epoch_min_loss = None
 		start_epoch = 1
 		for epoch in range(start_epoch, num_epochs):
@@ -95,9 +97,9 @@ class MultiGraph:
 		return edges_pos, edges_neg
 
 	def generate_pseudo_labels(self, graph):
-		nodes = [n for n in graph.nodes(data=True) if g['y'] is not None]
+		nodes = [n for n in graph.nodes(data=True) if n['y'] is not None]
 		nodesx = [n.x for n in nodes]
-		nodes_no = [n for n in graph.nodes(data=True) if g['y'] is None]
+		nodes_no = [n for n in graph.nodes(data=True) if n['y'] is None]
 		nodes_no_x= [n.x for n in nodes_no]
 		kn = knn(nodesx, nodes_no_x, len(nodes_no_x) - 1)
 		k1, k2 = train_test_split(kn, train_size=0.3, shuffle=False)
@@ -110,10 +112,10 @@ class MultiGraph:
 		return graph
 
 	def generate_edges(self, graph):
-		nodes_1 = [n for n in graph.nodes(data=True) if g['y'] == 1]
-		nodes_2 = [n for n in graph.nodes(data=True) if g['y'] == 2]
-		nodes_3 = [n for n in graph.nodes(data=True) if g['y'] == 3]
-		nodes_4 = [n for n in graph.nodes(data=True) if g['y'] == 4]
+		nodes_1 = [n for n in graph.nodes(data=True) if n['y'] == 1]
+		nodes_2 = [n for n in graph.nodes(data=True) if n['y'] == 2]
+		nodes_3 = [n for n in graph.nodes(data=True) if n['y'] == 3]
+		nodes_4 = [n for n in graph.nodes(data=True) if n['y'] == 4]
 		edges_1_pos, edges_1_neg = self.find_knn(nodes_1)
 		edges_2_pos,edges_2_neg  = self.find_knn(nodes_2)
 		edges_3_pos, edges_3_neg = self.find_knn(nodes_3)
