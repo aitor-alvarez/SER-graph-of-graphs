@@ -9,10 +9,13 @@ from utils.loader import graph_loader
 from sklearn.model_selection import train_test_split
 from itertools import combinations
 import os
+from torch_geometric.utils import from_networkx
+
 
 #Path to the speech encoder, in this case Resnet, Whisper, or wav2vec.
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 GRAPH_MODEL_PATH = 'trained/local_graph_embedding.pt'
+MULTIGRAPH_PATH = 'trained/multigraph.pt'
 
 #Global graph
 class MultiGraph:
@@ -96,9 +99,7 @@ class MultiGraph:
 			edges_neg.append((n1[int(j[0])], n2[int(j[1])]))
 		return edges_pos, edges_neg
 
-	def generate_pseudo_label(self, graph):
-		edges_pos = []
-		edges_neg = []
+	def generate_pseudo_labels(self, graph):
 		nodes = [n for n in graph.nodes(data=True) if g['y'] is not None]
 		nodesx = [n.x for n in nodes]
 		nodes_no = [n for n in graph.nodes(data=True) if g['y'] is None]
@@ -106,10 +107,12 @@ class MultiGraph:
 		kn = knn(nodesx, nodes_no_x, len(nodes_no_x) - 1)
 		k1, k2 = train_test_split(kn, train_size=0.3, shuffle=False)
 		for i in k1:
-			edges_pos.append((nodes[int(i[0])], nodes_no[int(i[1])]))
+			graph.add_edge((nodes[int(i[0])], nodes_no[int(i[1])]))
+			graph.nodes[nodes_no[int(i[1])]].y = nodes[int(i[0])].y
 		for j in k2:
-			edges_neg.append((nodes[int(j[0])], nodes_no[int(j[1])]))
-		return edges_pos, edges_neg
+			graph.add_edge((nodes[int(j[0])], nodes_no[int(j[1])]))
+			graph.nodes[nodes_no[int(j[1])]].y = nodes[int(j[0])].y
+		return graph
 
 	def generate_edges(self, graph):
 		nodes_1 = [n for n in graph.nodes(data=True) if g['y'] == 1]
@@ -137,3 +140,7 @@ class MultiGraph:
 			gemb = model(l.x, l.edge_index, l.batch)
 			graph.add_node(l.id, x=gemb, y=None, z=l.y)
 		multi_graph = self.generate_edges(graph)
+		multi_graph = self.generate_pseudo_labels(multi_graph)
+		output = from_networkx(multi_graph)
+		torch.save(output, MULTIGRAPH_PATH)
+		return None
