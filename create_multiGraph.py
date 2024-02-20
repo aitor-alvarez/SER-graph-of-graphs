@@ -7,7 +7,6 @@ from sklearn.model_selection import train_test_split
 import os
 from torch_geometric.utils import from_networkx
 
-
 #Path to the speech encoder, in this case Resnet, Whisper, or wav2vec.
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 GRAPH_MODEL_PATH = 'trained/local_graph_embedding.pt'
