@@ -1,13 +1,9 @@
 from torch_geometric.nn import knn
 from torch_geometric.loader import DataLoader
 import torch
-from tqdm import tqdm
-from models.resnet import Resnet, Bottleneck
 from models.GraphEmbedding import GraphEmbedding
-from transformers import AutoFeatureExtractor
 from utils.loader import graph_loader
 from sklearn.model_selection import train_test_split
-from itertools import combinations
 import os
 from torch_geometric.utils import from_networkx
 
