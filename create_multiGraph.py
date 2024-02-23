@@ -15,8 +15,7 @@ MULTIGRAPH_PATH = 'trained/multigraph.pt'
 
 #Global graph
 class MultiGraph:
-	def __int__(self, speech_model_path, graph_test_path, graph_train_path, num_class, emb_size, is_trained=False):
-		self.speech_encoder = speech_model_path
+	def __init__(self, graph_test_path, graph_train_path, num_class, emb_size, is_trained):
 		self.graph_train_path = graph_train_path
 		self.graph_test_path = graph_test_path
 		self.classes = num_class
@@ -37,7 +36,7 @@ class MultiGraph:
 		return dataset
 
 	def train_local_graphs(self):
-		self.data = self.get_dataset()
+		self.data = self.get_dataset(self.graph_train_path)
 		self.data = graph_loader(self.data)
 		self.data, self.no_label_data = train_test_split(self.data, train_size=self.percent_labels, shuffle=True)
 		train_loader = DataLoader(self.data, batch_size=self.batch_size, shuffle=True)

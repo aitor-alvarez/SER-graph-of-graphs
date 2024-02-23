@@ -21,7 +21,7 @@ label2id = {'ang':1, 'hap':2, 'neu':3, 'sad':4}
 def generate_initial_graph(audio_dir, emo='ang'):
 	filename = emo
 	contours, files, pitches, inds= create_contours(audio_dir+emo+'/')
-	pattern_length = 6
+	pattern_length = 8
 	Gapbide(contours, 10, 0, 0, pattern_length, audio_dir+emo+'/'+filename).run()
 	dictionary = create_dictionary(audio_dir+emo+'/'+filename+'_intervals.txt')
 	#create_patterns_audio_dataset(dictionary, contours, audio_dir+emo+'/', files)
