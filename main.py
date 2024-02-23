@@ -26,4 +26,4 @@ if __name__ == '__main__':
         elif 'resblstm' in args.model_id and args.data_folder:
             train_torch_model(args.model_id, dataset, args.output_dir, args.batch_size, args.num_epochs, args.train_test)
     else:
-        print("No model or dataset have been selected")
+        print("No model or dataset has been selected")

@@ -12,3 +12,4 @@ pretrained*
 lightning_logs
 IEMOCAP/
 CNN-models/
+data/

@@ -7,10 +7,12 @@ from utils.gapbide import Gapbide
 from utils.process_file import create_dictionary, create_nodes_dictionary
 import uuid
 import networkx as nx
-from torch_geometric.utils import from_networkx, to_networkx
-from utils.intonation_patterns import preprocess_function, feature_extractor
+from torch_geometric.utils import from_networkx
+from transformers import Wav2Vec2Model, AutoFeatureExtractor
+from models.resnet import Resnet, Bottleneck
+import torchaudio
 
-SPEECH_MODEL_PATH='.'
+SPEECH_MODEL_PATH = 'data/wav2vec'
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -20,7 +22,7 @@ def generate_initial_graph(audio_dir, emo='ang'):
 	filename = emo
 	contours, files, pitches, inds= create_contours(audio_dir+emo+'/')
 	pattern_length = 6
-	Gapbide(contours, 10,0, 0, pattern_length, audio_dir+emo+'/'+filename).run()
+	Gapbide(contours, 10, 0, 0, pattern_length, audio_dir+emo+'/'+filename).run()
 	dictionary = create_dictionary(audio_dir+emo+'/'+filename+'_intervals.txt')
 	#create_patterns_audio_dataset(dictionary, contours, audio_dir+emo+'/', files)
 	create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, audio_dir+filename+'/', audio_dir+filename+'/patterns/', emo)
@@ -269,21 +271,22 @@ def create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, pa
 
 
 def get_acoustic_feat(audio_file):
-	emb = []
-	if 'resblstm' in self.speech_encoder:
+	if 'resblstm' in SPEECH_MODEL_PATH:
 		model = Resnet(Bottleneck, [3, 6, 3])
 		model.to(device)
-		model.load_state_dict(SPEECH_MODEL_PATH)
+		model.load_state_dict(torch.load(SPEECH_MODEL_PATH, map_location=torch.device(device)))
 		model.linear = torch.nn.Identity()
 		model.eval()
 		with torch.no_grad():
-			emb.append(model(b))
-	elif 'wav2vec' or 'hubert' in self.speech_encoder:
+			emb = model(torchaudio.load(audio_file))
+	elif 'wav2vec' or 'hubert' in SPEECH_MODEL_PATH:
 		model = Wav2Vec2Model.from_pretrained(SPEECH_MODEL_PATH).to(device)
+		model.eval()
 		feature_extractor = AutoFeatureExtractor.from_pretrained(SPEECH_MODEL_PATH)
-		feat = feature_extractor(audio_file, sampling_rate = feature_extractor.sampling_rate, max_length = 16000, padding = True,
-							  truncation = True, return_tensors=True)
+		audio, sr = torchaudio.load(audio_file)
+		feat = feature_extractor(audio[0], sampling_rate = feature_extractor.sampling_rate, max_length = 16000, padding = True,
+							  truncation = True, return_tensors="pt")
 		with torch.no_grad():
 			output = model(feat.input_values)
-		emb.app(output.last_hidden_state)
+		emb = output.last_hidden_state
 	return emb

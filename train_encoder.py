@@ -2,9 +2,9 @@ import numpy as np
 import torch
 from torch import utils, optim
 from transformers import AutoConfig, Wav2Vec2FeatureExtractor, TrainingArguments, Trainer, AutoModelForAudioClassification, AutoFeatureExtractor
-from models.resnet import LightResnet, Resnet, Bottleneck
+from models.resnet import Resnet, Bottleneck
 import evaluate
-import lightning as L
+from tqdm import tqdm
 
 accuracy = evaluate.load("accuracy")
 
@@ -86,6 +86,7 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
             save_total_limit=2,
             push_to_hub=False,
         )
+
         model.freeze_feature_extractor()
 
         trainer = Trainer(
