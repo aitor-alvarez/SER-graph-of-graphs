@@ -29,6 +29,7 @@ class MultiGraph:
 		self.data = None
 		self.no_label_data = None
 		self.is_trained = is_trained
+		self.local_graph_created = True
 
 	def get_dataset(self, dir):
 		dataset=[]
@@ -55,7 +56,8 @@ class MultiGraph:
 		return max_len
 
 	def train_local_graphs(self):
-		self.data = self.get_dataset(self.graph_train_path)
+		if not self.local_graph_created:
+			self.data = self.get_dataset(self.graph_train_path)
 		self.data = graph_loader(self.data)
 		self.data, self.no_label_data = train_test_split(self.data, train_size=self.percent_labels, shuffle=True)
 		train_loader = DataLoader(self.data, batch_size=self.batch_size, shuffle=True)
