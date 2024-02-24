@@ -35,10 +35,10 @@ class MultiGraph:
 		max_len = self.get_audio_max_len(dir)
 		for root, dirs, files in os.walk(dir):
 			for f in files:
-				fp = root + f
+				fp = root +'/'+ f
 				if 'patterns' in root and fp.endswith('.pt'):
 					graph = torch.load(fp)
-					graph.x = get_speech_representations(graph.id, max_len)
+					graph.x = get_speech_representations(graph.id, root, max_len)
 					torch.save(graph, fp)
 					dataset.append(fp)
 		return dataset
@@ -47,7 +47,7 @@ class MultiGraph:
 		max_len = 0
 		for root, dirs, files in os.walk(dir):
 			for f in files:
-				fp = root + f
+				fp = root +'/'+ f
 				if 'patterns' in root and fp.endswith('.wav'):
 					audio_len = torchaudio.load(fp)[0][0].shape
 					if audio_len.numel()>max_len:

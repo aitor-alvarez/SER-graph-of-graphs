@@ -18,14 +18,15 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 label2id = {'ang':1, 'hap':2, 'neu':3, 'sad':4}
 
-def generate_initial_graph(audio_dir, emo='ang'):
-	filename = emo
-	contours, files, pitches, inds= create_contours(audio_dir+emo+'/')
-	pattern_length = 8
-	Gapbide(contours, 10, 0, 0, pattern_length, audio_dir+emo+'/'+filename).run()
-	dictionary = create_dictionary(audio_dir+emo+'/'+filename+'_intervals.txt')
-	#create_patterns_audio_dataset(dictionary, contours, audio_dir+emo+'/', files)
-	create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, audio_dir+filename+'/', audio_dir+filename+'/patterns/', emo)
+def generate_initial_graph(audio_dir):
+	for emo in label2id.keys():
+		filename = emo
+		contours, files, pitches, inds= create_contours(audio_dir+emo+'/')
+		pattern_length = 8
+		Gapbide(contours, 10, 0, 0, pattern_length, audio_dir+emo+'/'+filename).run()
+		dictionary = create_dictionary(audio_dir+emo+'/'+filename+'_intervals.txt')
+		#create_patterns_audio_dataset(dictionary, contours, audio_dir+emo+'/', files)
+		create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, audio_dir+filename+'/', audio_dir+filename+'/patterns/', emo)
 	print("Graph generation completed")
 	return None
 
@@ -290,9 +291,9 @@ def get_acoustic_feat(audio_tensor):
 		emb = output.last_hidden_state
 	return emb
 
-def get_speech_representations(data, max_len):
+def get_speech_representations(data, path, max_len):
 	embeddings=[]
-	data = [torchaudio.load(d)[0] for d in data]
+	data = [torchaudio.load(path+'/'+d)[0] for d in data]
 	data = padding_tensor(data, max_len)
 	for audio in data:
 		outputs = get_acoustic_feat(audio)
