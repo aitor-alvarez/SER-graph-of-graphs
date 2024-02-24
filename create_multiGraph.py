@@ -72,13 +72,13 @@ class MultiGraph:
 		start_epoch = 1
 		for epoch in range(start_epoch, num_epochs):
 			epoch_loss = []
-			for batch in train_loader:
+			for graph in train_loader:
 				optimizer.zero_grad()
-				out = model(batch.x, batch.edge_index, batch.batch)
-				loss = criterion(out, batch.y)
-				total = batch.y.size(0)
+				out = model(graph.x, graph.edge_index, graph.batch)
+				loss = criterion(out, graph.y)
+				total = graph.y.size(0)
 				_, predicted = torch.max(out.data, 1)
-				correct = (predicted == batch.y).sum().item()
+				correct = (predicted == graph.y).sum().item()
 				acc_list.append(correct / total)
 				loss.backward()
 				optimizer.step()
