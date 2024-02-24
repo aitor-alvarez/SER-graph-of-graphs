@@ -3,10 +3,13 @@ from torch_geometric.loader import DataLoader
 import torch
 from models.GraphEmbedding import GraphEmbedding
 from utils.loader import graph_loader
+from utils.intonation_patterns import get_speech_representations
 from sklearn.model_selection import train_test_split
 import os
 from torch_geometric.utils import from_networkx
 import networkx as nx
+import torchaudio
+
 
 #Path to the speech encoder, in this case Resnet, Whisper, or wav2vec.
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -18,30 +21,46 @@ class MultiGraph:
 	def __init__(self, graph_test_path, graph_train_path, num_class, emb_size, is_trained):
 		self.graph_train_path = graph_train_path
 		self.graph_test_path = graph_test_path
-		self.classes = num_class
+		self.num_class = num_class
 		self.emb_size = emb_size
 		self.batch_size = 32
 		self.percent_labels = 0.8
+		self.classes = 4
 		self.data = None
 		self.no_label_data = None
 		self.is_trained = is_trained
 
 	def get_dataset(self, dir):
 		dataset=[]
+		max_len = self.get_audio_max_len(dir)
 		for root, dirs, files in os.walk(dir):
 			for f in files:
-				fp = root + '/' + f
+				fp = root + f
 				if 'patterns' in root and fp.endswith('.pt'):
+					graph = torch.load(fp)
+					graph.x = get_speech_representations(graph.id, max_len)
+					torch.save(graph, fp)
 					dataset.append(fp)
 		return dataset
+
+	def get_audio_max_len(self, dir):
+		max_len = 0
+		for root, dirs, files in os.walk(dir):
+			for f in files:
+				fp = root + f
+				if 'patterns' in root and fp.endswith('.wav'):
+					audio_len = torchaudio.load(fp)[0][0].shape
+					if audio_len.numel()>max_len:
+						max_len = audio_len.numel()
+		return max_len
 
 	def train_local_graphs(self):
 		self.data = self.get_dataset(self.graph_train_path)
 		self.data = graph_loader(self.data)
 		self.data, self.no_label_data = train_test_split(self.data, train_size=self.percent_labels, shuffle=True)
 		train_loader = DataLoader(self.data, batch_size=self.batch_size, shuffle=True)
-		train_loader.to(device)
-		model = GraphEmbedding(embedding_size=self.emb_size, hidden_channels=128, num_classes=self.classes).to(device)
+		model = GraphEmbedding(embedding_size=self.emb_size, hidden_channels=128, num_classes=self.classes)
+		model.to(device)
 		optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=5e-4)
 		criterion = torch.nn.CrossEntropyLoss()
 		model.train()
@@ -83,8 +102,8 @@ class MultiGraph:
 	def find_knn(self, n):
 		edges_pos=[]
 		edges_neg=[]
-		n1 = n[:len(n) // 2]
-		n2 = n[len(n) // 2:]
+		n1 = n[:len(n) / 2]
+		n2 = n[len(n) / 2:]
 		xn1 = [n.x for n in n1]
 		xn2 = [n.x for n in n2]
 		kn = knn(xn1, xn2, len(n1)-1)

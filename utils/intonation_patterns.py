@@ -242,7 +242,7 @@ def slice_audio(slice_from, slice_to, path, audio_file, path_out):
 
 
 #Takes as the input a dictionary of (intonation) patterns and contours and slices audio files based on the patterns
-# contained in the dictionary. At the same time it saves the co-occurences of patterns in an adjacency list to
+# contained in the dictionary. At the same time it saves the co-occurrences of patterns in an adjacency list to
 #create a graph.
 def create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, path, path_out_audio, emo):
 	if not os.path.exists(path_out_audio):
@@ -261,16 +261,16 @@ def create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, pa
 					ini = inds[i][s[0]][0]+1
 					end = inds[i][s[1]][0]+1
 					slice_audio(pitches[i].get_time_from_frame_number(ini), pitches[i].get_time_from_frame_number(end), path2, name, path_out_audio)
-					speech_feat = get_acoustic_feat(path_out_audio + name)
-					G.add_node(name, x=speech_feat, y=label2id[emo])
-		if G.number_of_nodes()>0:
-			path_graph = nx.path_graph(G.nodes)
+					G.add_node(name, id = name, labels=label2id[emo], node_audio=path_out_audio + name)
+		if G.number_of_nodes()>1:
+			path_graph = nx.path_graph(G)
 			graph = from_networkx(path_graph)
+			graph.id = [g[1]['id'] for g in G.nodes.data()]
+			graph.y = torch.tensor([g[1]['labels'] for g in G.nodes.data()])
 			torch.save(graph, path_out_audio +files[i].replace('.wav', '')+ '.pt')
 	return None
 
-
-def get_acoustic_feat(audio_file):
+def get_acoustic_feat(audio_tensor):
 	if 'resblstm' in SPEECH_MODEL_PATH:
 		model = Resnet(Bottleneck, [3, 6, 3])
 		model.to(device)
@@ -278,15 +278,36 @@ def get_acoustic_feat(audio_file):
 		model.linear = torch.nn.Identity()
 		model.eval()
 		with torch.no_grad():
-			emb = model(torchaudio.load(audio_file))
+			emb = model(audio_tensor)
 	elif 'wav2vec' or 'hubert' in SPEECH_MODEL_PATH:
 		model = Wav2Vec2Model.from_pretrained(SPEECH_MODEL_PATH).to(device)
 		model.eval()
 		feature_extractor = AutoFeatureExtractor.from_pretrained(SPEECH_MODEL_PATH)
-		audio, sr = torchaudio.load(audio_file)
-		feat = feature_extractor(audio[0], sampling_rate = feature_extractor.sampling_rate, max_length = 16000, padding = True,
+		feat = feature_extractor(audio_tensor, sampling_rate = feature_extractor.sampling_rate, max_length = 16000, padding = True,
 							  truncation = True, return_tensors="pt")
 		with torch.no_grad():
 			output = model(feat.input_values)
 		emb = output.last_hidden_state
 	return emb
+
+def get_speech_representations(data, max_len):
+	embeddings=[]
+	data = [torchaudio.load(d)[0] for d in data]
+	data = padding_tensor(data, max_len)
+	for audio in data:
+		outputs = get_acoustic_feat(audio)
+		embeddings.append(outputs)
+	out = torch.cat(embeddings)
+	return out
+
+def padding_tensor(sequences, max_len):
+	"""
+	input=list of tensors
+	"""
+	num = len(sequences)
+	out_dims = (num, max_len)
+	out_tensor = sequences[0].data.new(*out_dims).fill_(0)
+	for i, tensor in enumerate(sequences):
+		length = tensor.size(1)
+		out_tensor[i, :length] = tensor
+	return out_tensor
