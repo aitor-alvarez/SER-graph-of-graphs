@@ -2,7 +2,7 @@ from torch_geometric.nn import knn
 from torch_geometric.loader import DataLoader
 import torch
 from models.GraphEmbedding import GraphEmbedding
-from utils.loader import graph_loader
+from utils.loader import load_graphs
 from utils.intonation_patterns import get_speech_representations
 from sklearn.model_selection import train_test_split
 import os
@@ -18,7 +18,7 @@ MULTIGRAPH_PATH = 'trained/multigraph.pt'
 
 # Global graph
 class MultiGraph:
-    def __init__(self, graph_test_path, graph_train_path, num_class, emb_size, is_trained):
+    def __init__(self, graph_test_path, graph_train_path, num_class, emb_size):
         self.graph_train_path = graph_train_path
         self.graph_test_path = graph_test_path
         self.num_class = num_class
@@ -28,40 +28,15 @@ class MultiGraph:
         self.classes = 4
         self.data = None
         self.no_label_data = None
-        self.is_trained = is_trained
         self.local_graph_created = True
+        self.is_local_trained = False
 
-    def get_dataset(self, dir):
-        dataset = []
-        max_len = self.get_audio_max_len(dir)
-        for root, dirs, files in os.walk(dir):
-            for f in files:
-                fp = root + '/' + f
-                if 'patterns' in root and fp.endswith('.pt'):
-                    graph = torch.load(fp)
-                    graph.x = get_speech_representations(graph.id, root, max_len)
-                    torch.save(graph, fp)
-                    dataset.append(fp)
-        return dataset
 
-    # Function to get the maximum length of the patterns for padding.
-    def get_audio_max_len(self, dir):
-        max_len = 0
-        for root, dirs, files in os.walk(dir):
-            for f in files:
-                fp = root + '/' + f
-                if 'patterns' in root and fp.endswith('.wav'):
-                    audio_len = torchaudio.load(fp)[0][0].shape
-                    if audio_len.numel() > max_len:
-                        max_len = audio_len.numel()
-        return max_len
 
     def train_local_graphs(self):
-        if not self.local_graph_created:
-            self.data = self.get_dataset(self.graph_train_path)
-        self.data = graph_loader(self.data)
+        self.data = load_graphs(self.graph_train_path)
         self.data, self.no_label_data = train_test_split(self.data, train_size=self.percent_labels, shuffle=True)
-        train_loader = DataLoader(self.data, batch_size=self.batch_size, shuffle=True)
+        loader = DataLoader(self.data, batch_size=self.batch_size, shuffle=True)
         model = GraphEmbedding(embedding_size=self.emb_size, hidden_channels=128, num_classes=self.classes)
         model.to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=5e-4)
@@ -75,22 +50,24 @@ class MultiGraph:
         start_epoch = 1
         for epoch in range(start_epoch, num_epochs):
             epoch_loss = []
-            for graph in train_loader:
+            epoch_acc = []
+            i = 0
+            for graph in loader:
                 optimizer.zero_grad()
-                out = model(graph.x, graph.edge_index, graph.batch)
+                out = model(graph.x, graph.edge_index)
                 loss = criterion(out, graph.y)
                 total = graph.y.size(0)
                 _, predicted = torch.max(out.data, 1)
                 correct = (predicted == graph.y).sum().item()
-                acc_list.append(correct / total)
+                epoch_acc.append(correct / total)
                 loss.backward()
                 optimizer.step()
                 epoch_loss.append(loss)
 
-            ### Epoch check ###
+                ### Epoch check ###
             e_loss = sum(epoch_loss) / len(epoch_loss)
             print(e_loss)
-            print(correct / total)
+            print(sum(epoch_acc) / len(epoch_acc))
             if epoch_min_loss == None:
                 epoch_min_loss = e_loss
             elif e_loss < epoch_min_loss:

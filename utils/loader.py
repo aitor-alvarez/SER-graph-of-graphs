@@ -1,13 +1,21 @@
 import torch
+import os
 
-def graph_loader(graph_path):
-    data_graph = []
-    for p in graph_path:
-        g = torch.load(p)
-        if g.num_nodes > 1:
-            x = torch.stack([g.x])
-            g.x = x.squeeze(1)
-            g.y = g.y[0]
-            g.id = p.split('/')[-1].replace('.pt', '')
-            data_graph.append(g)
-    return data_graph
+#Cleaning out the mess. Labels should start at index 0.
+classes = {1:0, 2:1, 3:2, 4:3}
+def load_graphs(dir):
+    graphs=[]
+    for root, dirs, files in os.walk(dir):
+        for f in files:
+            y = []
+            emb=[]
+            fp = root + '/' + f
+            if 'patterns' in root and fp.endswith('.pt'):
+                g = torch.load(fp)
+                for k in range(g.num_nodes):
+                    emb.append(g.x[k].view(g.x[k].shape[0] * g.x[k].shape[1]))
+                    y.append(classes[int(g.y[k])])
+                g.x = torch.stack(emb)
+                g.y = torch.tensor(y)
+                graphs.append(g)
+    return graphs

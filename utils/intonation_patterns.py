@@ -22,7 +22,7 @@ def generate_initial_graph(audio_dir):
 	for emo in label2id.keys():
 		filename = emo
 		contours, files, pitches, inds= create_contours(audio_dir+emo+'/')
-		pattern_length = 8
+		pattern_length = 6
 		Gapbide(contours, 10, 0, 0, pattern_length, audio_dir+emo+'/'+filename).run()
 		dictionary = create_dictionary(audio_dir+emo+'/'+filename+'_intervals.txt')
 		#create_patterns_audio_dataset(dictionary, contours, audio_dir+emo+'/', files)
@@ -35,39 +35,6 @@ def create_contours(audio_dir):
 	fqs, files, pitches = get_f0_praat(audio_dir)
 	contours, inds = get_interval_contour(fqs)
 	return contours, files, pitches, inds
-
-###Creates a graph based on the prosodic patterns of the speech utterances.
-def generate_graph(contours, files):
-	dictionary = create_nodes_dictionary('patterns/train/')
-	G = nx.Graph()
-	node_list=[]
-	for d in dictionary:
-		nodes = []
-		for i, c in enumerate(contours):
-			nodename = files[i]
-			if len(d) > len(c):
-				continue
-			else:
-				sub = find_sublist(d, c)
-			if sub:
-				nodes.append(nodename)
-
-		g = nx.Graph()
-		g.add_nodes_from(nodes)
-		sg= create_graph(g)
-		node_list.append(nodes)
-	graph = add_edge_attributes(sg, node_list)
-	gp= from_networkx(graph)
-	torch.save(gp, 'patterns/graph.pt')
-
-
-def add_edge_attributes(G, nodes):
-	for e in G.edges:
-		for n in nodes:
-			if e[0] and e[1] in n:
-				if 'weight' in G[e[0]][e[1]]:
-					G[e[0]][e[1]]['weight'] +=1
-	return G
 
 
 def slice_audio(slice_from, slice_to, path, audio_file, path_out):
@@ -263,12 +230,15 @@ def create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, pa
 					end = inds[i][s[1]][0]+1
 					slice_audio(pitches[i].get_time_from_frame_number(ini), pitches[i].get_time_from_frame_number(end), path2, name, path_out_audio)
 					G.add_node(name, id = name, labels=label2id[emo], node_audio=path_out_audio + name)
-		if G.number_of_nodes()>1:
+		if G.number_of_nodes()>0:
 			path_graph = nx.path_graph(G)
 			graph = from_networkx(path_graph)
 			graph.id = [g[1]['id'] for g in G.nodes.data()]
 			graph.y = torch.tensor([g[1]['labels'] for g in G.nodes.data()])
-			torch.save(graph, path_out_audio +files[i].replace('.wav', '')+ '.pt')
+			graph_file = path_out_audio +files[i].replace('.wav', '')+ '.pt'
+			if not os.path.exists(graph_file):
+				graph.x = get_speech_representations(graph.id, path_out_audio)
+				torch.save(graph, graph_file)
 	return None
 
 def get_acoustic_feat(audio_tensor):
@@ -280,7 +250,7 @@ def get_acoustic_feat(audio_tensor):
 		model.eval()
 		with torch.no_grad():
 			emb = model(audio_tensor)
-	elif 'wav2vec' or 'hubert' in SPEECH_MODEL_PATH:
+	elif 'wav2vec' in SPEECH_MODEL_PATH:
 		model = Wav2Vec2Model.from_pretrained(SPEECH_MODEL_PATH).to(device)
 		model.eval()
 		feature_extractor = AutoFeatureExtractor.from_pretrained(SPEECH_MODEL_PATH)
@@ -291,7 +261,7 @@ def get_acoustic_feat(audio_tensor):
 		emb = output.last_hidden_state
 	return emb
 
-def get_speech_representations(data, path, max_len):
+def get_speech_representations(data, path, max_len=68000):
 	embeddings=[]
 	data = [torchaudio.load(path+'/'+d)[0] for d in data]
 	data = padding_tensor(data, max_len)
@@ -312,3 +282,14 @@ def padding_tensor(sequences, max_len):
 		length = tensor.size(1)
 		out_tensor[i, :length] = tensor
 	return out_tensor
+
+def get_audio_max_len(dir):
+	max_len = 0
+	for root, dirs, files in os.walk(dir):
+		for f in files:
+			fp = root + '/' + f
+			if 'patterns' in root and fp.endswith('.wav'):
+				audio_len = torchaudio.load(fp)[0].shape[1]
+				if audio_len > max_len:
+					max_len = audio_len.numel()
+	return max_len
