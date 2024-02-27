@@ -12,7 +12,7 @@ from transformers import Wav2Vec2Model, AutoFeatureExtractor
 from models.resnet import Resnet, Bottleneck
 import torchaudio
 
-SPEECH_MODEL_PATH = 'data/wav2vec'
+SPEECH_MODEL_PATH = '../data/wav2vec'
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -261,7 +261,7 @@ def get_acoustic_feat(audio_tensor):
 		emb = output.last_hidden_state
 	return emb
 
-def get_speech_representations(data, path, max_len=68000):
+def get_speech_representations(data, path, max_len=84608):
 	embeddings=[]
 	data = [torchaudio.load(path+'/'+d)[0] for d in data]
 	data = padding_tensor(data, max_len)
@@ -291,5 +291,5 @@ def get_audio_max_len(dir):
 			if 'patterns' in root and fp.endswith('.wav'):
 				audio_len = torchaudio.load(fp)[0].shape[1]
 				if audio_len > max_len:
-					max_len = audio_len.numel()
+					max_len = audio_len
 	return max_len

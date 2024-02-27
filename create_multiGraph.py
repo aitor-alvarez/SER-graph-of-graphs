@@ -3,12 +3,9 @@ from torch_geometric.loader import DataLoader
 import torch
 from models.GraphEmbedding import GraphEmbedding
 from utils.loader import load_graphs
-from utils.intonation_patterns import get_speech_representations
 from sklearn.model_selection import train_test_split
-import os
 from torch_geometric.utils import from_networkx
 import networkx as nx
-import torchaudio
 
 # Path to the speech encoder, in this case Resnet, Whisper, or wav2vec.
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -24,7 +21,7 @@ class MultiGraph:
         self.num_class = num_class
         self.emb_size = emb_size
         self.batch_size = 32
-        self.percent_labels = 0.8
+        self.percent_labels = 1.0
         self.classes = 4
         self.data = None
         self.no_label_data = None
@@ -87,7 +84,7 @@ class MultiGraph:
         xn1 = [n.x for n in n1]
         xn2 = [n.x for n in n2]
         kn = knn(xn1, xn2, len(n1) - 1)
-        k1, k2 = train_test_split(kn, train_size=0.8, shuffle=False)
+        k1, k2 = train_test_split(kn, train_size=1.0, shuffle=False)
         for i in k1:
             edges_pos.append((n1[int(i[0])], n2[int(i[1])]))
         for j in k2:
