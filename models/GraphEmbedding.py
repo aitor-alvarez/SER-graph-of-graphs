@@ -1,6 +1,5 @@
 from torch import nn
-from torch_geometric.nn import GraphConv
-from torch_geometric.nn import global_mean_pool
+from torch_geometric.nn import GraphConv, global_mean_pool, TransformerConv, BatchNorm
 from torch.functional import F
 
 
@@ -28,3 +27,20 @@ class GraphEmbedding(nn.Module):
         out = self.linear(x)
         return out
 
+class MultiGraphAttention(nn.Module):
+    def __init__(self, embedding_size):
+        self.embedding_size = embedding_size
+        super(MultiGraphAttention, self).__init__()
+        self.TconvInit = TransformerConv(self.embedding_size,
+                                     self.encoder_embedding_size,
+                                     heads=4,
+                                     concat=False,
+                                     beta=True,
+                                     edge_dim=self.edge_dim)
+        self.bn = BatchNorm(self.encoder_embedding_size)
+        self.Tconv = TransformerConv(self.encoder_embedding_size,
+                                     self.encoder_embedding_size,
+                                     heads=4,
+                                     concat=False,
+                                     beta=True,
+                                     edge_dim=self.edge_dim)

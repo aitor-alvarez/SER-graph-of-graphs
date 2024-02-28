@@ -1,7 +1,7 @@
 from torch_geometric.nn import knn
-from torch_geometric.loader import DataLoader
+from torch_geometric.loader import DataLoader, GraphSAINTSampler
 import torch
-from models.GraphEmbedding import GraphEmbedding
+from models.GraphEmbedding import GraphEmbedding, MultiGraphAttention
 from utils.loader import load_graphs
 from sklearn.model_selection import train_test_split
 from torch_geometric.utils import from_networkx
@@ -9,8 +9,8 @@ import networkx as nx
 
 # Path to the speech encoder, in this case Resnet, Whisper, or wav2vec.
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-GRAPH_MODEL_PATH = 'trained/local_graph_embedding.pt'
-MULTIGRAPH_PATH = 'trained/multigraph.pt'
+GRAPH_MODEL_PATH = '../trained/local_graph_embedding.pt'
+MULTIGRAPH_PATH = '../trained/multigraph.pt'
 
 
 # Global graph
@@ -40,7 +40,6 @@ class MultiGraph:
         model.train()
         epochs_stop = 3
         no_improve = 0
-        acc_list = []
         num_epochs = 40
         epoch_min_loss = None
         start_epoch = 1
@@ -73,6 +72,7 @@ class MultiGraph:
                 no_improve += 1
             if no_improve == epochs_stop:
                 torch.save(model, GRAPH_MODEL_PATH)
+                print("Model saved to {}".format(GRAPH_MODEL_PATH))
                 break
 
     def find_knn(self, n):
@@ -88,9 +88,9 @@ class MultiGraph:
         for i in range(ind):
             for j in range(k):
                 if j != 2:
-                    edges_pos.append(n1[int(kn[0][i + j])], n2[int(kn[1][i + j])])
+                    edges_pos.append((n1[int(kn[0][i+j])][0], n2[int(kn[1][i+j])][0]))
                 elif j == 2:
-                    edges_neg.append(n1[int(kn[0][i + j])], n2[int(kn[1][i + j])])
+                    edges_neg.append((n1[int(kn[0][i+j])][0], n2[int(kn[1][i+j])][0]))
         return edges_pos, edges_neg
 
 
@@ -116,10 +116,19 @@ class MultiGraph:
         model.linear = torch.nn.Identity()
         model.eval()
         graph = nx.Graph()
-        for d in self.data:
-            gemb = model(d.x, d.edge_index, d.batch)
-            graph.add_node(d.id, x=gemb, y=d.y)
+        with torch.no_grad():
+            for d in self.data:
+                gemb = model(d.x, d.edge_index, d.batch)
+                graph.add_node(str(d.id[0][0]).split('-')[0], x=gemb, y=d.y)
+
         multi_graph = self.generate_edges(graph)
         output = from_networkx(multi_graph)
+        output.y = torch.swapaxes(output.y, 0, 1)
         torch.save(output, MULTIGRAPH_PATH)
+        print("Multigraph created successfully at {}".format(MULTIGRAPH_PATH))
         return None
+
+    def train_multigraph(self):
+        data = torch.load(MULTIGRAPH_PATH)
+        loader = GraphSAINTSampler(data, int(round(data.num_nodes/5)))
+        model = MultiGraphAttention()
