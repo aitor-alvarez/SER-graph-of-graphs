@@ -7,15 +7,13 @@ def load_graphs(dir):
     graphs=[]
     for root, dirs, files in os.walk(dir):
         for f in files:
-            y = []
             emb=[]
             fp = root + '/' + f
             if 'patterns' in root and fp.endswith('.pt'):
                 g = torch.load(fp)
                 for k in range(g.num_nodes):
                     emb.append(g.x[k].view(g.x[k].shape[0] * g.x[k].shape[1]))
-                    y.append(classes[int(g.y[k])])
                 g.x = torch.stack(emb)
-                g.y = torch.tensor(y)
+                g.y = torch.tensor(classes[int(g.y[0])])
                 graphs.append(g)
     return graphs

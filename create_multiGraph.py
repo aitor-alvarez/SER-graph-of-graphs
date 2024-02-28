@@ -15,18 +15,19 @@ MULTIGRAPH_PATH = 'trained/multigraph.pt'
 
 # Global graph
 class MultiGraph:
-    def __init__(self, graph_test_path, graph_train_path, num_class, emb_size):
+    def __init__(self, graph_test_path, graph_train_path, num_class, emb_size, batch_size):
         self.graph_train_path = graph_train_path
         self.graph_test_path = graph_test_path
         self.num_class = num_class
         self.emb_size = emb_size
-        self.batch_size = 32
+        self.batch_size = batch_size
         self.percent_labels = 1.0
-        self.classes = 4
+        self.classes = num_class
         self.data = None
         self.no_label_data = None
         self.local_graph_created = True
-        self.is_local_trained = False
+        self.is_local_trained = True
+        self.has_no_label_data = False
 
 
 
@@ -107,10 +108,10 @@ class MultiGraph:
         return graph
 
     def generate_edges(self, graph):
-        nodes_1 = [n for n in graph.nodes(data=True) if n['y'] == 1]
-        nodes_2 = [n for n in graph.nodes(data=True) if n['y'] == 2]
-        nodes_3 = [n for n in graph.nodes(data=True) if n['y'] == 3]
-        nodes_4 = [n for n in graph.nodes(data=True) if n['y'] == 4]
+        nodes_1 = [n for n in graph.nodes(data=True) if n['y'] == 0]
+        nodes_2 = [n for n in graph.nodes(data=True) if n['y'] == 1]
+        nodes_3 = [n for n in graph.nodes(data=True) if n['y'] == 2]
+        nodes_4 = [n for n in graph.nodes(data=True) if n['y'] == 3]
         edges_1_pos, edges_1_neg = self.find_knn(nodes_1)
         edges_2_pos, edges_2_neg = self.find_knn(nodes_2)
         edges_3_pos, edges_3_neg = self.find_knn(nodes_3)
@@ -118,21 +119,22 @@ class MultiGraph:
         epos = edges_1_pos + edges_2_pos + edges_3_pos + edges_4_pos
         eneg = edges_1_neg + edges_2_neg + edges_3_neg + edges_4_neg
         graph.add_edges_from(epos, weight=1)
-        graph.add_edges_from(eneg, weight=-1)
         return graph
 
     def generate_multigraph(self):
-        model = torch.load(GRAPH_MODEL_PATH)
+        model = GraphEmbedding(embedding_size=self.emb_size, hidden_channels=1024 * 2, num_classes=self.num_class)
+        model.load_state_dict(torch.load(GRAPH_MODEL_PATH))
+        model.linear = torch.nn.Identity()
         model.eval()
         graph = nx.Graph()
         for d in self.data:
             gemb = model(d.x, d.edge_index, d.batch)
             graph.add_node(d.id, x=gemb, y=d.y)
-        for l in self.no_label_data:
-            gemb = model(l.x, l.edge_index, l.batch)
-            graph.add_node(l.id, x=gemb, y=None, z=l.y)
+        if self.has_no_label_data:
+            for l in self.no_label_data:
+                gemb = model(l.x, l.edge_index, l.batch)
+                graph.add_node(l.id, x=gemb, y=None, z=l.y)
         multi_graph = self.generate_edges(graph)
-        multi_graph = self.generate_pseudo_labels(multi_graph)
         output = from_networkx(multi_graph)
         torch.save(output, MULTIGRAPH_PATH)
         return None

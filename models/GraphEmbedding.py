@@ -1,5 +1,6 @@
 from torch import nn
-from torch_geometric.nn import GraphConv, GCNConv
+from torch_geometric.nn import GraphConv
+from torch_geometric.nn import global_mean_pool
 from torch.functional import F
 
 
@@ -13,8 +14,7 @@ class GraphEmbedding(nn.Module):
         self.linear = nn.Linear(int(channels/2), num_classes)
         self.relu = nn.LeakyReLU()
 
-    def forward(self, x_embeddings, edge_index):
-
+    def forward(self, x_embeddings, edge_index, batch):
         x = self.gconv1(x_embeddings, edge_index)
         x = self.relu(x)
         x = F.dropout(x, training=self.training)
@@ -24,6 +24,7 @@ class GraphEmbedding(nn.Module):
         x = self.gconv3(x, edge_index)
         x = self.relu(x)
         x = F.dropout(x, training=self.training)
+        x = global_mean_pool(x, batch)
         out = self.linear(x)
         return out
 
