@@ -27,8 +27,6 @@ class MultiGraph:
         self.no_label_data = None
         self.local_graph_created = True
         self.is_local_trained = True
-        self.has_no_label_data = False
-
 
 
     def train_local_graphs(self):
@@ -78,40 +76,30 @@ class MultiGraph:
                 break
 
     def find_knn(self, n):
+        k = 3
         edges_pos = []
         edges_neg = []
-        n1 = n[:len(n) / 2]
-        n2 = n[len(n) / 2:]
-        xn1 = [n.x for n in n1]
-        xn2 = [n.x for n in n2]
-        kn = knn(xn1, xn2, len(n1) - 1)
-        k1, k2 = train_test_split(kn, train_size=1.0, shuffle=False)
-        for i in k1:
-            edges_pos.append((n1[int(i[0])], n2[int(i[1])]))
-        for j in k2:
-            edges_neg.append((n1[int(j[0])], n2[int(j[1])]))
+        ind = int(abs(len(n) / 2))
+        n1 = n[:ind]
+        n2 = n[ind:]
+        xn1 = torch.squeeze(torch.stack([n[1]['x'] for n in n[:ind]]))
+        xn2 = torch.squeeze(torch.stack([n[1]['x'] for n in n[ind:]]))
+        kn = knn(xn1, xn2, k)
+        for i in range(ind):
+            for j in range(k):
+                if j != 2:
+                    edges_pos.append(n1[int(kn[0][i + j])], n2[int(kn[1][i + j])])
+                elif j == 2:
+                    edges_neg.append(n1[int(kn[0][i + j])], n2[int(kn[1][i + j])])
         return edges_pos, edges_neg
 
-    def generate_pseudo_labels(self, graph):
-        nodes = [n for n in graph.nodes(data=True) if n['y'] is not None]
-        nodesx = [n.x for n in nodes]
-        nodes_no = [n for n in graph.nodes(data=True) if n['y'] is None]
-        nodes_no_x = [n.x for n in nodes_no]
-        kn = knn(nodesx, nodes_no_x, len(nodes_no_x) - 1)
-        k1, k2 = train_test_split(kn, train_size=0.3, shuffle=False)
-        for i in k1:
-            graph.add_edge((nodes[int(i[0])], nodes_no[int(i[1])]))
-            graph.nodes[nodes_no[int(i[1])]].y = nodes[int(i[0])].y
-        for j in k2:
-            graph.add_edge((nodes[int(j[0])], nodes_no[int(j[1])]))
-            graph.nodes[nodes_no[int(j[1])]].y = nodes[int(j[0])].y
-        return graph
 
     def generate_edges(self, graph):
-        nodes_1 = [n for n in graph.nodes(data=True) if n['y'] == 0]
-        nodes_2 = [n for n in graph.nodes(data=True) if n['y'] == 1]
-        nodes_3 = [n for n in graph.nodes(data=True) if n['y'] == 2]
-        nodes_4 = [n for n in graph.nodes(data=True) if n['y'] == 3]
+        nodes_1 = [n for n in graph.nodes(data=True) if int(n[1]['y']) == 0]
+        nodes_2 = [n for n in graph.nodes(data=True) if int(n[1]['y']) == 1]
+        nodes_3 = [n for n in graph.nodes(data=True) if int(n[1]['y']) == 2]
+        nodes_4 = [n for n in graph.nodes(data=True) if int(n[1]['y']) == 3]
+
         edges_1_pos, edges_1_neg = self.find_knn(nodes_1)
         edges_2_pos, edges_2_neg = self.find_knn(nodes_2)
         edges_3_pos, edges_3_neg = self.find_knn(nodes_3)
@@ -119,6 +107,7 @@ class MultiGraph:
         epos = edges_1_pos + edges_2_pos + edges_3_pos + edges_4_pos
         eneg = edges_1_neg + edges_2_neg + edges_3_neg + edges_4_neg
         graph.add_edges_from(epos, weight=1)
+        graph.add_edges_from(eneg, weight=-1)
         return graph
 
     def generate_multigraph(self):
@@ -130,10 +119,6 @@ class MultiGraph:
         for d in self.data:
             gemb = model(d.x, d.edge_index, d.batch)
             graph.add_node(d.id, x=gemb, y=d.y)
-        if self.has_no_label_data:
-            for l in self.no_label_data:
-                gemb = model(l.x, l.edge_index, l.batch)
-                graph.add_node(l.id, x=gemb, y=None, z=l.y)
         multi_graph = self.generate_edges(graph)
         output = from_networkx(multi_graph)
         torch.save(output, MULTIGRAPH_PATH)
