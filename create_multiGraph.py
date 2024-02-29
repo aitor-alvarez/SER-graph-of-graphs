@@ -1,17 +1,19 @@
 from torch_geometric.nn import knn
-from torch_geometric.loader import DataLoader, GraphSAINTSampler
+from torch_geometric.loader import DataLoader, LinkNeighborLoader
 import torch
 from models.GraphEmbedding import GraphEmbedding, MultiGraphAttention
 from utils.loader import load_graphs
 from sklearn.model_selection import train_test_split
 from torch_geometric.utils import from_networkx
 import networkx as nx
+import evaluate
 
 # Path to the speech encoder, in this case Resnet, Whisper, or wav2vec.
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-GRAPH_MODEL_PATH = '../trained/local_graph_embedding.pt'
-MULTIGRAPH_PATH = '../trained/multigraph.pt'
+GRAPH_MODEL_PATH = 'trained/local_graph_embedding.pt'
+MULTIGRAPH_PATH = 'trained/multigraph.pt'
 
+recall = evaluate.load('recall')
 
 # Global graph
 class MultiGraph:
@@ -46,7 +48,6 @@ class MultiGraph:
         for epoch in range(start_epoch, num_epochs):
             epoch_loss = []
             epoch_acc = []
-            i = 0
             for graph in loader:
                 optimizer.zero_grad()
                 out = model(graph.x, graph.edge_index)
@@ -123,12 +124,55 @@ class MultiGraph:
 
         multi_graph = self.generate_edges(graph)
         output = from_networkx(multi_graph)
-        output.y = torch.swapaxes(output.y, 0, 1)
+        output.x = torch.squeeze(output.x)
+        output.y = torch.squeeze(torch.swapaxes(output.y, 0, 1))
         torch.save(output, MULTIGRAPH_PATH)
         print("Multigraph created successfully at {}".format(MULTIGRAPH_PATH))
         return None
 
+    def compute_metrics(self, predictions, label_ids):
+        rec_w = recall.compute(predictions=predictions, references=label_ids, average='weighted')
+        rec_u = recall.compute(predictions=predictions, references=label_ids, average=None)
+        return rec_w, rec_u
+
     def train_multigraph(self):
-        data = torch.load(MULTIGRAPH_PATH)
-        loader = GraphSAINTSampler(data, int(round(data.num_nodes/5)))
         model = MultiGraphAttention()
+        data = torch.load(MULTIGRAPH_PATH)
+        epochs = 100
+        epochs_stop = 3
+        no_improve = 0
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=5e-4)
+        criterion = torch.nn.CrossEntropyLoss()
+
+        for epoch in range(epochs):
+            min_loss = None
+            out = model(data.x, data.edge_index, data.weight)
+            optimizer.zero_grad()
+            loss = criterion(out, data)
+            _, predicted = torch.max(out.data, 1)
+            recall_w, recall_u = self.compute_metrics(predicted, data.y)
+            print("Epoch: {}, Loss: {:.4f}".format(epoch, loss))
+            print("Weighted Recall: ", recall_w)
+            print("Unweighted Recall: ", recall_u)
+            loss.backward()
+            optimizer.step()
+            if min_loss == None:
+                min_loss = loss
+            elif loss < min_loss:
+                min_loss = loss
+                no_improve = 0
+            else:
+                no_improve += 1
+            if no_improve == epochs_stop:
+                torch.save(model, 'trained/multigraph_model.pt')
+                print("Model trained completed")
+                break
+    def test(self, model, test_graph):
+        model.eval()
+        with torch.no_grad():
+            out = model(test_graph)
+            _, predicted = torch.max(out.data, 1)
+            recall_w, recall_u = self.compute_metrics(predicted, test_graph.y)
+            print("Weighted Recall: ", recall_w)
+            print("Unweighted Recall: ", recall_u)
+            print("Test completed")

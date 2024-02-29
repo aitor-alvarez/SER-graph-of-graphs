@@ -27,20 +27,27 @@ class GraphEmbedding(nn.Module):
         out = self.linear(x)
         return out
 
+
 class MultiGraphAttention(nn.Module):
-    def __init__(self, embedding_size):
+    def __init__(self, embedding_size, decoder_size):
         self.embedding_size = embedding_size
+        self.decoder_size = self.embedding_size*2
+        self.decoder_size = decoder_size
+        self.num_classes = 4
+
         super(MultiGraphAttention, self).__init__()
-        self.TconvInit = TransformerConv(self.embedding_size,
-                                     self.encoder_embedding_size,
+        self.Tconv = TransformerConv(self.embedding_size,
+                                         self.embedding_size,
                                      heads=4,
                                      concat=False,
-                                     beta=True,
-                                     edge_dim=self.edge_dim)
-        self.bn = BatchNorm(self.encoder_embedding_size)
-        self.Tconv = TransformerConv(self.encoder_embedding_size,
-                                     self.encoder_embedding_size,
-                                     heads=4,
-                                     concat=False,
-                                     beta=True,
-                                     edge_dim=self.edge_dim)
+                                     beta=True)
+        self.bn = BatchNorm(self.embedding_size)
+        self.linear_1 = nn.Linear(self.embedding_size, self.decoder_size)
+        self.linear_2 = nn.Linear(self.decoder_size, self.num_classes)
+
+    def forward(self, x, edge_index, edge_attr):
+        x = self.bn(self.Tconv(x, edge_index, edge_attr).relu())
+        x = self.bn(self.Tconv(x, edge_index, edge_attr).relu())
+        x = self.linear_1(x)
+        x = self.linear_2(x)
+        return x
