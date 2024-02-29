@@ -23,7 +23,6 @@ class MultiGraph:
         self.num_class = num_class
         self.emb_size = emb_size
         self.batch_size = batch_size
-        self.percent_labels = 1.0
         self.classes = num_class
         self.data = None
         self.no_label_data = None
@@ -176,3 +175,7 @@ class MultiGraph:
             print("Weighted Recall: ", recall_w)
             print("Unweighted Recall: ", recall_u)
             print("Test completed")
+
+    def run(self):
+        if self.local_graph_created and self.is_local_trained:
+
