@@ -29,10 +29,10 @@ class GraphEmbedding(nn.Module):
 
 
 class MultiGraphAttention(nn.Module):
-    def __init__(self, embedding_size, decoder_size):
+    def __init__(self, embedding_size):
         self.embedding_size = embedding_size
         self.decoder_size = self.embedding_size*2
-        self.decoder_size = decoder_size
+        self.edge_dim = 3960
         self.num_classes = 4
 
         super(MultiGraphAttention, self).__init__()
@@ -40,7 +40,7 @@ class MultiGraphAttention(nn.Module):
                                          self.embedding_size,
                                      heads=4,
                                      concat=False,
-                                     beta=True)
+                                     beta=True, edge_dim=self.edge_dim)
         self.bn = BatchNorm(self.embedding_size)
         self.linear_1 = nn.Linear(self.embedding_size, self.decoder_size)
         self.linear_2 = nn.Linear(self.decoder_size, self.num_classes)

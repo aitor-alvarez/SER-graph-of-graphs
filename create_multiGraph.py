@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 from torch_geometric.utils import from_networkx
 import networkx as nx
 import evaluate
+import numpy as np
 
 # Path to the speech encoder, in this case Resnet, Whisper, or wav2vec.
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -14,6 +15,7 @@ GRAPH_MODEL_PATH = 'trained/local_graph_embedding.pt'
 MULTIGRAPH_PATH = 'trained/multigraph.pt'
 
 recall = evaluate.load('recall')
+accuracy = evaluate.load('accuracy')
 
 # Global graph
 class MultiGraph:
@@ -132,24 +134,27 @@ class MultiGraph:
     def compute_metrics(self, predictions, label_ids):
         rec_w = recall.compute(predictions=predictions, references=label_ids, average='weighted')
         rec_u = recall.compute(predictions=predictions, references=label_ids, average=None)
+        rec_u = np.mean(rec_u['recall'])
         return rec_w, rec_u
 
     def train_multigraph(self):
-        model = MultiGraphAttention()
+        model = MultiGraphAttention(embedding_size=512)
         data = torch.load(MULTIGRAPH_PATH)
+        data.x = data.x.to(torch.float)
+        data.edge_index = data.edge_index.to(torch.int64)
+        data.weight = data.weight.to(torch.float)
         epochs = 100
         epochs_stop = 3
         no_improve = 0
         optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=5e-4)
         criterion = torch.nn.CrossEntropyLoss()
-
+        min_loss = None
         for epoch in range(epochs):
-            min_loss = None
             out = model(data.x, data.edge_index, data.weight)
             optimizer.zero_grad()
-            loss = criterion(out, data)
-            _, predicted = torch.max(out.data, 1)
-            recall_w, recall_u = self.compute_metrics(predicted, data.y)
+            loss = criterion(out, data.y)
+            _, predicted = torch.max(out, 1)
+            recall_w, recall_u = compute_metrics(predicted, data.y)
             print("Epoch: {}, Loss: {:.4f}".format(epoch, loss))
             print("Weighted Recall: ", recall_w)
             print("Unweighted Recall: ", recall_u)
@@ -163,7 +168,7 @@ class MultiGraph:
             else:
                 no_improve += 1
             if no_improve == epochs_stop:
-                torch.save(model, 'trained/multigraph_model.pt')
+                torch.save(model, 'trained/multigraph_gnn_model.pt')
                 print("Model trained completed")
                 break
     def test(self, model, test_graph):
