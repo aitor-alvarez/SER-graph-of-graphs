@@ -13,6 +13,7 @@ import numpy as np
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 GRAPH_MODEL_PATH = 'trained/local_graph_embedding.pt'
 MULTIGRAPH_PATH = 'trained/multigraph.pt'
+MULTIGRAPH_TEST_PATH = 'trained/multigraph_test.pt'
 
 recall = evaluate.load('recall')
 accuracy = evaluate.load('accuracy')
@@ -154,7 +155,7 @@ class MultiGraph:
             optimizer.zero_grad()
             loss = criterion(out, data.y)
             _, predicted = torch.max(out, 1)
-            recall_w, recall_u = compute_metrics(predicted, data.y)
+            recall_w, recall_u = self.compute_metrics(predicted, data.y)
             print("Epoch: {}, Loss: {:.4f}".format(epoch, loss))
             print("Weighted Recall: ", recall_w)
             print("Unweighted Recall: ", recall_u)
@@ -171,7 +172,9 @@ class MultiGraph:
                 torch.save(model, 'trained/multigraph_gnn_model.pt')
                 print("Model trained completed")
                 break
-    def test(self, model, test_graph):
+        return model
+
+    def test_multigraph(self, model, test_graph):
         model.eval()
         with torch.no_grad():
             out = model(test_graph)
@@ -183,4 +186,6 @@ class MultiGraph:
 
     def run(self):
         if self.local_graph_created and self.is_local_trained:
-
+            self.generate_multigraph()
+            model = self.train_multigraph()
+            self.test_multigraph(model, test_graph=MULTIGRAPH_TEST_PATH)
