@@ -189,3 +189,8 @@ class MultiGraph:
             self.generate_multigraph()
             model = self.train_multigraph()
             self.test_multigraph(model, test_graph=MULTIGRAPH_TEST_PATH)
+        else:
+            self.train_local_graphs()
+            self.generate_multigraph()
+            model = self.train_multigraph()
+            self.test_multigraph(model, test_graph=MULTIGRAPH_TEST_PATH)
