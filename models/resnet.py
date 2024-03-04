@@ -95,9 +95,6 @@ class Resnet(nn.Module):
         out = self.layer2(out)
         out = self.layer3(out)
         out = F.avg_pool2d(out, 4)
-        batch, time = out.size()[:2]
-        out = out.reshape(batch, time, -1)
-        out, hidden = self.blstm(out)
         in_ffn = self.flatten(out)
         output = self.linear(in_ffn)
         soft = F.log_softmax(output, dim=1)
