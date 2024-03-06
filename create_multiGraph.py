@@ -8,7 +8,6 @@ from torch_geometric.utils import from_networkx
 import networkx as nx
 import evaluate
 import numpy as np
-from sklearn.model_selection import KFold
 
 # Path to the speech encoder, in this case Resnet, Whisper, or wav2vec.
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -139,7 +138,8 @@ class MultiGraph:
         rec_u = recall.compute(predictions=predictions, references=label_ids, average=None)
         rec_u = np.mean(rec_u['recall'])
         f1_score = f1.compute(predictions=predictions, references=label_ids, average='micro')
-        return rec_w, rec_u, f1_score
+        acc = accuracy.compute(predictions=predictions, references=label_ids, average='weighted')
+        return rec_w, rec_u, f1_score, acc
 
     def train_multigraph(self):
         model = MultiGraphAttention(embedding_size=512)
@@ -158,11 +158,12 @@ class MultiGraph:
             optimizer.zero_grad()
             loss = criterion(out, data.y)
             _, predicted = torch.max(out, 1)
-            recall_w, recall_u, f1_score = self.compute_metrics(predicted, data.y)
+            recall_w, recall_u, f1_score, acc = self.compute_metrics(predicted, data.y)
             print("Epoch: {}, Loss: {:.4f}".format(epoch, loss))
             print("Weighted Recall: ", recall_w)
             print("Unweighted Recall: ", recall_u)
             print("F1 micro: ", f1_score)
+            print("Acc.: ", acc)
             loss.backward()
             optimizer.step()
             if min_loss == None:
@@ -183,10 +184,11 @@ class MultiGraph:
         with torch.no_grad():
             out = model(test_graph)
             _, predicted = torch.max(out.data, 1)
-            recall_w, recall_u, f1_micro = self.compute_metrics(predicted, test_graph.y)
+            recall_w, recall_u, f1_micro, acc = self.compute_metrics(predicted, test_graph.y)
             print("Weighted Recall: ", recall_w)
             print("Unweighted Recall: ", recall_u)
             print("f1_micro: ", f1_micro)
+            print("Acc.: ", acc)
             print("Test completed")
 
     def run(self):
