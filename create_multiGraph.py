@@ -9,7 +9,7 @@ import networkx as nx
 import evaluate
 import numpy as np
 
-# Path to the speech encoder, in this case Resnet oe HuBERT.
+# Path to the speech encoder, in this case Resnet or HuBERT.
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 GRAPH_MODEL_PATH = 'trained/local_graph_embedding.pt'
 MULTIGRAPH_PATH = 'trained/multigraph.pt'
