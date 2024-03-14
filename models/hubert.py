@@ -8,13 +8,13 @@ class ClassifierModule(nn.Module):
         super().__init__()
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.dropout = nn.Dropout(config.classifier_dropout)
-        self.out = nn.Linear(config.hidden_size, config.num_class)
+        self.linear = nn.Linear(config.hidden_size, config.num_class)
 
     def forward(self, x):
         x = self.dense(x)
         x = torch.tanh(x)
         x = self.dropout(x)
-        x = self.out(x)
+        x = self.linear(x)
         return x
 
 

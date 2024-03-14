@@ -21,22 +21,20 @@ f1 = evaluate.load('f1')
 
 # Global graph
 class MultiGraph:
-    def __init__(self, graph_test_path, graph_train_path, num_class, emb_size, batch_size):
+    def __init__(self, graph_train_path, num_class, emb_size, batch_size, is_local_trained=True):
         self.graph_train_path = graph_train_path
-        self.graph_test_path = graph_test_path
         self.num_class = num_class
         self.emb_size = emb_size
         self.batch_size = batch_size
         self.classes = num_class
+        self.is_local_trained = is_local_trained
         self.data = None
         self.no_label_data = None
-        self.local_graph_created = True
-        self.is_local_trained = True
 
 
     def train_local_graphs(self):
         self.data = load_graphs(self.graph_train_path)
-        self.data, self.no_label_data = train_test_split(self.data, train_size=self.percent_labels, shuffle=True)
+        self.data, self.no_label_data = train_test_split(self.data, train_size=0.8, shuffle=True)
         loader = DataLoader(self.data, batch_size=self.batch_size, shuffle=True)
         model = GraphEmbedding(embedding_size=self.emb_size, hidden_channels=128, num_classes=self.classes)
         model.to(device)
@@ -192,7 +190,7 @@ class MultiGraph:
             print("Test completed")
 
     def run(self):
-        if self.local_graph_created and self.is_local_trained:
+        if self.is_local_trained:
             self.generate_multigraph()
             model = self.train_multigraph()
             self.test_multigraph(model, test_graph=MULTIGRAPH_TEST_PATH)

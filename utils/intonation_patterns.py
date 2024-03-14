@@ -12,7 +12,7 @@ from transformers import Wav2Vec2Model, AutoFeatureExtractor
 from models.resnet import Resnet, Bottleneck
 import torchaudio
 
-SPEECH_MODEL_PATH = '../data/wav2vec'
+SPEECH_MODEL_PATH = 'data/HuBERT'
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -22,8 +22,8 @@ def generate_initial_graph(audio_dir):
 	for emo in label2id.keys():
 		filename = emo
 		contours, files, pitches, inds= create_contours(audio_dir+emo+'/')
-		pattern_length = 6
-		Gapbide(contours, 10, 0, 0, pattern_length, audio_dir+emo+'/'+filename).run()
+		pattern_length = 4
+		Gapbide(contours, 4, 0, 0, pattern_length, audio_dir+emo+'/'+filename).run()
 		dictionary = create_dictionary(audio_dir+emo+'/'+filename+'_intervals.txt')
 		#create_patterns_audio_dataset(dictionary, contours, audio_dir+emo+'/', files)
 		create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, audio_dir+filename+'/', audio_dir+filename+'/patterns/', emo)
