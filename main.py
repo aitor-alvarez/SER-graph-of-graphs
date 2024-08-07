@@ -8,7 +8,7 @@ models = ['resblstm', 'gnn']
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument( '--model_id')
+    parser.add_argument('--model_id')
     parser.add_argument('--num_epochs')
     parser.add_argument('--batch_size')
     parser.add_argument('--data_folder')
@@ -22,10 +22,6 @@ if __name__ == '__main__':
     if args.model_id not in models and args.data_folder:
         dataset = load_dataset("audiofolder", data_dir=args.data_folder)
         emotion_classification_pretrained(args.model_id, dataset, args.output_dir, args.batch_size, args.num_epochs, args.train_test)
-    elif args.model_id in models and args.data_folder:
-        if 'resblstm' in args.model_id and args.data_folder:
-            dataset = load_dataset("audiofolder", data_dir=args.data_folder)
-            train_torch_model(args.model_id, dataset, args.output_dir, args.batch_size, args.num_epochs, args.train_test)
     if args.create_graphs and args.data_folder:
         generate_initial_graph(args.data_folder)
     elif args.create_multi =='y':
