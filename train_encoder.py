@@ -1,10 +1,9 @@
 import numpy as np
 import torch
-from torch import utils, optim
-from transformers import AutoConfig, Wav2Vec2FeatureExtractor, TrainingArguments, Trainer, AutoModelForAudioClassification, AutoFeatureExtractor
-from models.resnet import Resnet, Bottleneck
+from transformers import (AutoConfig, Wav2Vec2FeatureExtractor,
+                          TrainingArguments, Trainer, AutoFeatureExtractor)
+from models.transformer_speech import HubertEmotion, Wav2VecEmotion
 import evaluate
-from tqdm import tqdm
 
 accuracy = evaluate.load("accuracy")
 
@@ -50,8 +49,6 @@ def collate_fn(batch):
     return tensors, targets
 
 def emotion_classification_pretrained(model_name, dataset, output_dir, batch_size, num_epochs,train_test):
-    config = AutoConfig.from_pretrained(pretrained_model_name_or_path=model_name)
-    #hubert_emotion = HubertEmotion.from_pretrained(model_name,config=config).to(device)
     labels = dataset["train"].features["label"].names
     label2id, id2label = dict(), dict()
     for i, label in enumerate(labels):
@@ -59,14 +56,10 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
         id2label[str(i)] = label
 
     num_labels = len(id2label)
+    config = AutoConfig.from_pretrained(pretrained_model_name_or_path=model_name,
+                                        num_labels=num_labels, label2id=label2id, id2label=id2label)
+    model = HubertEmotion.from_pretrained(config, num_labels).to(device)
     encoded_dataset = dataset.map(preprocess_function, remove_columns="audio", batched=True)
-
-    model = AutoModelForAudioClassification.from_pretrained(
-        model_name,
-        num_labels=num_labels,
-        label2id=label2id,
-        id2label=id2label,
-    )
 
     if train_test == 'train':
         training_args = TrainingArguments(
