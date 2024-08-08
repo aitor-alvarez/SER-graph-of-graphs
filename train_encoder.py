@@ -58,7 +58,7 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
     num_labels = len(id2label)
     config = AutoConfig.from_pretrained(pretrained_model_name_or_path=model_name,
                                         num_labels=num_labels, label2id=label2id, id2label=id2label)
-    model = HubertEmotion.from_pretrained(config, num_labels).to(device)
+    model = HubertEmotion.from_pretrained(config).to(device)
     encoded_dataset = dataset.map(preprocess_function, remove_columns="audio", batched=True)
 
     if train_test == 'train':
