@@ -48,7 +48,7 @@ def collate_fn(batch):
 
     return tensors, targets
 
-def emotion_classification_pretrained(model_name, dataset, output_dir, batch_size, num_epochs,train_test):
+def emotion_classification_pretrained(model_name, dataset, output_dir, batch_size, num_epochs):
     labels = dataset["train"].features["label"].names
     label2id, id2label = dict(), dict()
     for i, label in enumerate(labels):
@@ -58,17 +58,21 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
     num_labels = len(id2label)
     config = AutoConfig.from_pretrained(pretrained_model_name_or_path=model_name,
                                         num_labels=num_labels, label2id=label2id, id2label=id2label)
-    model = HubertEmotion.from_pretrained(config).to(device)
+    if 'hubert' in model_name:
+        model = HubertEmotion.from_pretrained(config).to(device)
+    elif 'wav2vec' in model_name:
+        model = Wav2VecEmotion.from_pretrained(model_name, config=config).to(device)
+
     encoded_dataset = dataset.map(preprocess_function, remove_columns="audio", batched=True)
 
-    if train_test == 'train':
-        training_args = TrainingArguments(
+
+    training_args = TrainingArguments(
             output_dir=output_dir,
             remove_unused_columns=False,
-            per_device_train_batch_size=32,
+            per_device_train_batch_size=batch_size,
             gradient_accumulation_steps=2,
             evaluation_strategy="steps",
-            num_train_epochs=100,
+            num_train_epochs=num_epochs,
             gradient_checkpointing=True,
             fp16=True,
             save_steps=400,
@@ -80,9 +84,9 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
             push_to_hub=False,
         )
 
-        model.freeze_feature_extractor()
+    model.freeze_feature_extractor()
 
-        trainer = Trainer(
+    trainer = Trainer(
             model=model,
             args=training_args,
             compute_metrics=compute_metrics,
@@ -91,4 +95,4 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
             tokenizer=feature_extractor,
         )
 
-        trainer.train(resume_from_checkpoint=True)
+    trainer.train(resume_from_checkpoint=False)

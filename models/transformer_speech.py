@@ -8,7 +8,7 @@ class ClassifierModule(nn.Module):
         super().__init__()
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.dropout = nn.Dropout(p=0.2)
-        self.linear = nn.Linear(config.hidden_size, config.num_class)
+        self.linear = nn.Linear(config.hidden_size, config.num_labels)
 
     def forward(self, x):
         x = self.dense(x)
@@ -37,6 +37,9 @@ class Wav2VecEmotion(Wav2Vec2PreTrainedModel):
         self.w2v = Wav2Vec2Model(config)
         self.classifier = ClassifierModule(config)
         self.init_weights()
+
+    def freeze_feature_extractor(self):
+        self.w2v.feature_extractor._freeze_parameters()
 
     def forward(self, x):
         outputs = self.w2v(x)

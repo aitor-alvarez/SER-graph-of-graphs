@@ -4,24 +4,24 @@ from train_encoder import *
 from create_multiGraph import MultiGraph
 from utils.intonation_patterns import generate_initial_graph
 
-models = ['resblstm', 'gnn']
+models = ['gnn']
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_id')
-    parser.add_argument('--num_epochs')
-    parser.add_argument('--batch_size')
-    parser.add_argument('--data_folder')
-    parser.add_argument('--graph_folder')
-    parser.add_argument('--output_dir')
+    parser.add_argument('-model_id')
+    parser.add_argument('-num_epochs')
+    parser.add_argument('-batch_size')
+    parser.add_argument('-data_folder')
+    parser.add_argument('-graph_folder')
+    parser.add_argument('-output_dir')
     parser.add_argument('--create_graphs')
     parser.add_argument('--create_multi')
     args = parser.parse_args()
 
-    #For training/tuning the audio encoder.
+    #For training/fine-tuning the audio encoder.
     if args.model_id not in models and args.data_folder:
-        dataset = load_dataset("audiofolder", data_dir=args.data_folder)
-        emotion_classification_pretrained(args.model_id, dataset, args.output_dir, args.batch_size, args.num_epochs, args.train_test)
+        dataset = load_dataset("audiofolder", data_dir=args.data_folder, drop_labels=False)
+        emotion_classification_pretrained(args.model_id, dataset, args.output_dir, args.batch_size, args.num_epochs)
     if args.create_graphs and args.data_folder:
         generate_initial_graph(args.data_folder)
     elif args.create_multi =='y':
