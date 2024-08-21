@@ -73,7 +73,7 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
             evaluation_strategy="steps",
             num_train_epochs=int(num_epochs),
             gradient_checkpointing=True,
-            fp16=False,
+            fp16=True,
             save_steps=400,
             eval_steps=1000,
             logging_steps=100,
