@@ -24,8 +24,20 @@ class HubertEmotion(HubertPreTrainedModel):
         self.classifier = ClassifierModule(config)
         self.init_weights()
 
-    def forward(self, x):
-        outputs = self.hubert(x)
+    def freeze_feature_extractor(self):
+        self.hubert.feature_extractor._freeze_parameters()
+    def forward(self,
+                input_values,
+        attention_mask = None,
+        output_attentions = None,
+        output_hidden_states = None,
+        return_dict =  None,
+        labels = None):
+        outputs = self.hubert(input_values,
+            attention_mask=attention_mask,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict)
         hidden_states = outputs[0]
         x = torch.mean(hidden_states, dim=1)
         x = self.classifier(x)
@@ -41,8 +53,19 @@ class Wav2VecEmotion(Wav2Vec2PreTrainedModel):
     def freeze_feature_extractor(self):
         self.w2v.feature_extractor._freeze_parameters()
 
-    def forward(self, x):
-        outputs = self.w2v(x)
+    def forward(self,
+            input_values,
+            attention_mask=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
+            labels=None):
+
+        outputs = self.w2v(input_values,
+            attention_mask=attention_mask,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict)
         hidden_states = outputs[0]
         x = torch.mean(hidden_states, dim=1)
         x = self.classifier(x)

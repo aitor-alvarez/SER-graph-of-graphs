@@ -1,5 +1,5 @@
 import numpy as np
-import torch
+import torch, os
 from transformers import (AutoConfig, Wav2Vec2FeatureExtractor,
                           TrainingArguments, Trainer, AutoFeatureExtractor)
 from models.transformer_speech import HubertEmotion, Wav2VecEmotion
@@ -8,8 +8,6 @@ import evaluate
 accuracy = evaluate.load("accuracy")
 
 recall = evaluate.load('recall')
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 feature_extractor = AutoFeatureExtractor.from_pretrained("facebook/hubert-large-ll60k")
 
@@ -59,22 +57,23 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
     config = AutoConfig.from_pretrained(pretrained_model_name_or_path=model_name,
                                         num_labels=num_labels, label2id=label2id, id2label=id2label)
     if 'hubert' in model_name:
-        model = HubertEmotion.from_pretrained(config).to(device)
+        model = HubertEmotion.from_pretrained(model_name, config=config)
     elif 'wav2vec' in model_name:
-        model = Wav2VecEmotion.from_pretrained(model_name, config=config).to(device)
+        model = Wav2VecEmotion.from_pretrained(model_name, config=config)
 
+    model.freeze_feature_extractor()
     encoded_dataset = dataset.map(preprocess_function, remove_columns="audio", batched=True)
 
 
     training_args = TrainingArguments(
             output_dir=output_dir,
             remove_unused_columns=False,
-            per_device_train_batch_size=batch_size,
+            per_device_train_batch_size=int(batch_size),
             gradient_accumulation_steps=2,
             evaluation_strategy="steps",
-            num_train_epochs=num_epochs,
+            num_train_epochs=int(num_epochs),
             gradient_checkpointing=True,
-            fp16=True,
+            fp16=False,
             save_steps=400,
             eval_steps=1000,
             logging_steps=100,
@@ -84,7 +83,7 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
             push_to_hub=False,
         )
 
-    model.freeze_feature_extractor()
+
 
     trainer = Trainer(
             model=model,

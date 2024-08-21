@@ -8,12 +8,12 @@ models = ['gnn']
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-model_id')
-    parser.add_argument('-num_epochs')
-    parser.add_argument('-batch_size')
-    parser.add_argument('-data_folder')
-    parser.add_argument('-graph_folder')
-    parser.add_argument('-output_dir')
+    parser.add_argument('--model_id')
+    parser.add_argument('--num_epochs')
+    parser.add_argument('--batch_size')
+    parser.add_argument('--data_folder')
+    parser.add_argument('--graph_folder')
+    parser.add_argument('--output_dir')
     parser.add_argument('--create_graphs')
     parser.add_argument('--create_multi')
     args = parser.parse_args()
