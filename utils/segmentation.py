@@ -1,4 +1,5 @@
 from pydub import AudioSegment
+import numpy as np
 
 
 def segment_utterance(utterance_path):
@@ -12,9 +13,14 @@ def Window(signal, w_size=500):
     start = 0
     while start < len(signal):
         end = start+w_size
+        print(start)
+        print(end)
         if end <= len(signal):
-            segments.append(signal[start:end])
+            sound = signal[start:end]
+            sound = np.asarray(sound.get_array_of_samples(),dtype = np.int64)
+            max_amp = max(sound)
+            segments.append(sound / max_amp)
             start += (w_size/2)
         else:
-            continue
+            break
     return segments
