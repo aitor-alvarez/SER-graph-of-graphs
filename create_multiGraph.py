@@ -90,9 +90,9 @@ class MultiGraph:
         for i in range(ind):
             for j in range(k):
                 if j != 2:
-                    edges_pos.append((n1[int(kn[0][i+j])][0], n2[int(kn[1][i+j])][0]))
+                    edges_pos.append(n1[int(kn[0][i+j])][0], n2[int(kn[1][i+j])][0])
                 elif j == 2:
-                    edges_neg.append((n1[int(kn[0][i+j])][0], n2[int(kn[1][i+j])][0]))
+                    edges_neg.append(n1[int(kn[0][i+j])][0], n2[int(kn[1][i+j])][0])
         return edges_pos, edges_neg
 
 

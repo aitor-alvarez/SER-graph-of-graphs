@@ -83,8 +83,6 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
             push_to_hub=False,
         )
 
-
-
     trainer = Trainer(
             model=model,
             args=training_args,
