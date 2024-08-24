@@ -1,8 +1,7 @@
 import os
 from utils.segmentation import segment_utterance
 from torch_geometric.utils import from_networkx
-from transformers import (AutoConfig, Wav2Vec2FeatureExtractor,
-                          TrainingArguments, Trainer, AutoFeatureExtractor)
+from transformers import AutoConfig, AutoFeatureExtractor
 from models.transformer_speech import HubertEmotion, Wav2VecEmotion
 import networkx as nx
 import torch
@@ -27,10 +26,14 @@ def get_acoustic_feat(audio_file):
         model = Wav2VecEmotion.from_pretrained(SPEECH_MODEL_PATH, config=config)
     model.eval()
     feature_extractor = AutoFeatureExtractor.from_pretrained(SPEECH_MODEL_PATH)
-    feat = feature_extractor(audio_tensor, sampling_rate = feature_extractor.sampling_rate, max_length = 16000, padding = True,
+    feat = feature_extractor(audio_tensor[0], sampling_rate = feature_extractor.sampling_rate, max_length = 16000, padding = True,
 							  truncation = True, return_tensors="pt")
     with torch.no_grad():
-        output = model(feat.input_values)
+        if 'hubert' in model.name_or_path:
+            output = model.hubert(feat.input_values[0], output_hidden_states=True)
+        elif 'wav2vec' in model.name_or_path:
+            output = model.w2v(feat.input_values[0], output_hidden_states=True)
+    preds = model(feat.input_values[0])
     emb = output.last_hidden_state
     return emb
 
@@ -42,14 +45,14 @@ def generate_graphs(audio_dir):
             G = nx.Graph()
             segs = os.listdir('tmp/')
             for s in segs:
-                G.add_node(s.split('.mp3')[0], id = s.split('.mp3')[0], y=torch.tensor(label2id[emo]))
+                G.add_node(s.split('.mp3')[0],x=get_acoustic_feat('tmp/'+s), y=label2id[emo])
+            del_files = [os.remove('tmp/' + f) for f in os.listdir('tmp/')]
             if G.number_of_nodes()>0:
                 path_graph = nx.path_graph(G)
                 graph = from_networkx(path_graph)
-                graph.x = get_acoustic_feat()
-                graph.id = [g[1]['id'] for g in G.nodes.data()]
+                graph.x = torch.cat([g[1]['x'] for g in G.nodes.data()])
                 graph.y = torch.tensor([g[1]['y'] for g in G.nodes.data()])
-                graph_file = audio_dir + f.replace('.wav', '') + '.pt'
+                graph_file = audio_dir +emo+'/'+ f.replace('.wav', '') + '.pt'
                 if not os.path.exists(graph_file):
                     torch.save(graph, graph_file)
     print("Graphs creation process completed")
