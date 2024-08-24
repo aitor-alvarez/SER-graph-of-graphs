@@ -15,7 +15,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 SPEECH_MODEL_PATH = 'data/wav2vec'
 
-def get_acoustic_feat(audio_file):
+def get_acoustic_feat(audio_file, label):
     audio_tensor = torchaudio.load(audio_file)
     num_labels = len(label2id)
     config = AutoConfig.from_pretrained(pretrained_model_name_or_path=SPEECH_MODEL_PATH,
@@ -33,9 +33,14 @@ def get_acoustic_feat(audio_file):
             output = model.hubert(feat.input_values[0], output_hidden_states=True)
         elif 'wav2vec' in model.name_or_path:
             output = model.w2v(feat.input_values[0], output_hidden_states=True)
-    preds = model(feat.input_values[0])
-    emb = output.last_hidden_state
-    return emb
+    model_preds = model(feat.input_values[0])
+    probs, predicted = torch.max(model_preds, 1)
+    correct = (predicted == label)
+    if correct and probs >=0.6:
+        return output.last_hidden_state
+    else:
+        return None
+
 
 def generate_graphs(audio_dir):
     for emo in label2id.keys():
@@ -45,7 +50,11 @@ def generate_graphs(audio_dir):
             G = nx.Graph()
             segs = os.listdir('tmp/')
             for s in segs:
-                G.add_node(s.split('.mp3')[0],x=get_acoustic_feat('tmp/'+s), y=label2id[emo])
+                emb = get_acoustic_feat('tmp/'+s, label2id[emo])
+                if emb:
+                    G.add_node(s.split('.mp3')[0],x=emb, y=label2id[emo])
+                else:
+                    continue
             del_files = [os.remove('tmp/' + f) for f in os.listdir('tmp/')]
             if G.number_of_nodes()>0:
                 path_graph = nx.path_graph(G)

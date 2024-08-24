@@ -14,7 +14,7 @@ class ClassifierModule(nn.Module):
         x = self.dense(x)
         x = self.dropout(x)
         x = self.linear(x)
-        return x
+        return nn.Softmax(x)
 
 
 class HubertEmotion(HubertPreTrainedModel):
