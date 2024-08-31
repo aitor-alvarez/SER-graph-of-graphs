@@ -2,7 +2,7 @@ import argparse
 from datasets import load_dataset
 from train_encoder import *
 from create_multiGraph import MultiGraph
-from utils.intonation_patterns import generate_initial_graph
+from utils.create_graphs import *
 
 models = ['gnn']
 
@@ -23,7 +23,7 @@ if __name__ == '__main__':
         dataset = load_dataset("audiofolder", data_dir=args.data_folder, drop_labels=False)
         emotion_classification_pretrained(args.model_id, dataset, args.output_dir, args.batch_size, args.num_epochs)
     if args.create_graphs and args.data_folder:
-        generate_initial_graph(args.data_folder)
+        generate_graphs(args.data_folder)
     elif args.create_multi =='y':
        #First, train the local graphs and obtain embeddings
        mg = MultiGraph(args.graph_data, num_class=4, emb_size=512, batch_size=128, is_local_trained = False)
