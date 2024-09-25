@@ -11,8 +11,6 @@ label2id = {'ang':1, 'hap':2, 'neu':3, 'sad':4}
 
 id2label = {1: 'ang', 2: 'hap', 3: 'neu', 4: 'sad'}
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 SPEECH_MODEL_PATH = 'data/wav2vec'
 
 def get_acoustic_feat(audio_file, label):

@@ -1,6 +1,16 @@
 import torch
 import torch.nn as nn
+from dataclasses import dataclass
+from typing import Optional, Tuple
+from transformers.file_utils import ModelOutput
 from transformers import HubertPreTrainedModel, HubertModel, Wav2Vec2PreTrainedModel, Wav2Vec2Model
+
+@dataclass
+class SpeechOutputClassifier(ModelOutput):
+    loss: Optional[torch.FloatTensor] = None
+    logits: torch.FloatTensor = None
+    hidden_states: Optional[Tuple[torch.FloatTensor]] = None
+    attentions: Optional[Tuple[torch.FloatTensor]] = None
 
 
 class ClassifierModule(nn.Module):
@@ -14,12 +24,13 @@ class ClassifierModule(nn.Module):
         x = self.dense(x)
         x = self.dropout(x)
         x = self.linear(x)
-        return nn.Softmax(x)
+        return x
 
 
 class HubertEmotion(HubertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
+        self.num_labels = self.config.num_labels
         self.hubert = HubertModel(config)
         self.classifier = ClassifierModule(config)
         self.init_weights()
@@ -40,12 +51,20 @@ class HubertEmotion(HubertPreTrainedModel):
             return_dict=return_dict)
         hidden_states = outputs[0]
         x = torch.mean(hidden_states, dim=1)
-        x = self.classifier(x)
-        return x
+        logits = self.classifier(x)
+        celoss = nn.CrossEntropyLoss()
+        loss = celoss(logits.view(-1, self.num_labels), labels.view(-1))
+        return SpeechOutputClassifier(
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )
 
 class Wav2VecEmotion(Wav2Vec2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
+        self.num_labels = self.config.num_labels
         self.w2v = Wav2Vec2Model(config)
         self.classifier = ClassifierModule(config)
         self.init_weights()
@@ -68,5 +87,12 @@ class Wav2VecEmotion(Wav2Vec2PreTrainedModel):
             return_dict=return_dict)
         hidden_states = outputs[0]
         x = torch.mean(hidden_states, dim=1)
-        x = self.classifier(x)
-        return x
+        logits = self.classifier(x)
+        celoss = nn.CrossEntropyLoss()
+        loss = celoss(logits.view(-1, self.num_labels), labels.view(-1))
+        return SpeechOutputClassifier(
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )
