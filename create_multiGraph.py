@@ -95,7 +95,7 @@ class MultiGraph:
                     edges_neg.append(n1[int(kn[0][i+j])][0], n2[int(kn[1][i+j])][0])
         return edges_pos, edges_neg
 
-
+    #This is for the current use case, 4 classes, it should be adjusted to any arbitrary number.
     def generate_edges(self, graph):
         nodes_1 = [n for n in graph.nodes(data=True) if int(n[1]['y']) == 0]
         nodes_2 = [n for n in graph.nodes(data=True) if int(n[1]['y']) == 1]

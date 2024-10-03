@@ -16,13 +16,13 @@ def compute_metrics(eval_pred):
     acc = accuracy.compute(predictions=predictions, references=eval_pred.label_ids)
     rec_w = recall.compute(predictions=predictions, references=eval_pred.label_ids, average='weighted')
     rec_u = recall.compute(predictions=predictions, references=eval_pred.label_ids, average=None)
-    return acc, rec_w, rec_u
+    return {'accuracy':acc, 'weighted_recall':rec_w, 'unweighted_recall':rec_u}
 
 
 def preprocess_function(examples):
     audio_arrays = [x["array"] for x in examples["audio"]]
     inputs = feature_extractor(
-        audio_arrays, sampling_rate=feature_extractor.sampling_rate, max_length=16000, padding=True ,truncation=True
+        audio_arrays, sampling_rate=feature_extractor.sampling_rate, max_length=16000, padding=True, truncation=True
     )
     return inputs
 
@@ -75,7 +75,7 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
             gradient_checkpointing=True,
             fp16=False,
             save_steps=400,
-            eval_steps=1000,
+            eval_steps=40,
             logging_steps=100,
             learning_rate=3e-4,
             warmup_steps=500,

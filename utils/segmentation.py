@@ -5,9 +5,7 @@ def segment_utterance(utterance_path):
     windowing(audio)
     return None
 
-
 def windowing(signal, w_size=500):
-    segments = []
     start = 0
     while start < len(signal):
         end = start+w_size
