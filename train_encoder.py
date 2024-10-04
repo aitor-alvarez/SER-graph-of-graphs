@@ -66,8 +66,8 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
     model.freeze_feature_extractor()
     encoded_dataset = dataset.map(preprocess_function, remove_columns="audio", batched=True)
 
-    #Eary stopping if the
-    early_stop = EarlyStoppingCallback(2, 1.0)
+    #Eary stopping if val_loss does not decrease
+    early_stop = EarlyStoppingCallback(2)
 
     training_args = TrainingArguments(
             output_dir=output_dir,
