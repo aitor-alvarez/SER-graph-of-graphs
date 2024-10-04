@@ -1,6 +1,6 @@
 import numpy as np
 import torch, os
-from transformers import (AutoConfig, Wav2Vec2FeatureExtractor,
+from transformers import (AutoConfig, EarlyStoppingCallback,
                           TrainingArguments, Trainer, AutoFeatureExtractor)
 from models.transformer_speech import HubertEmotion, Wav2VecEmotion
 import evaluate
@@ -18,7 +18,7 @@ def compute_metrics(eval_pred):
     acc = accuracy.compute(predictions=predictions, references=eval_pred.label_ids)
     rec_w = recall.compute(predictions=predictions, references=eval_pred.label_ids, average='macro')
     f1 = F1.compute(predictions=predictions, references=eval_pred.label_ids, average='macro')
-    return {'accuracy':acc, 'weighted_recall':rec_w, 'F1':f1}
+    return {'accuracy':acc, 'weighted_recall':rec_w, 'f1':f1}
 
 
 def preprocess_function(examples):
@@ -66,6 +66,8 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
     model.freeze_feature_extractor()
     encoded_dataset = dataset.map(preprocess_function, remove_columns="audio", batched=True)
 
+    #Eary stopping if the
+    early_stop = EarlyStoppingCallback(2, 1.0)
 
     training_args = TrainingArguments(
             output_dir=output_dir,
@@ -76,14 +78,14 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
             num_train_epochs=int(num_epochs),
             gradient_checkpointing=True,
             fp16=False,
-            save_steps=400,
-            eval_steps=40,
+            save_steps=500,
+            eval_steps=500,
             logging_steps=100,
             learning_rate=3e-4,
             warmup_steps=500,
             save_total_limit=2,
             push_to_hub=False,
-            no_cuda=True
+            metric_for_best_model='eval_loss'
         )
 
     trainer = Trainer(
@@ -93,6 +95,7 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
             train_dataset=encoded_dataset["train"].with_format("torch"),
             eval_dataset=encoded_dataset["test"].with_format("torch"),
             tokenizer=feature_extractor,
+            callbacks=[early_stop]
         )
 
     trainer.train(resume_from_checkpoint=False)
