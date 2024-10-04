@@ -15,8 +15,7 @@ def compute_metrics(eval_pred):
     predictions = np.argmax(eval_pred.predictions, axis=1)
     acc = accuracy.compute(predictions=predictions, references=eval_pred.label_ids)
     rec_w = recall.compute(predictions=predictions, references=eval_pred.label_ids, average='weighted')
-    rec_u = recall.compute(predictions=predictions, references=eval_pred.label_ids, average=None)
-    return {'accuracy':acc, 'weighted_recall':rec_w, 'unweighted_recall':rec_u}
+    return {'accuracy':acc, 'weighted_recall':rec_w}
 
 
 def preprocess_function(examples):

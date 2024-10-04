@@ -9,7 +9,6 @@ import uuid
 import networkx as nx
 from torch_geometric.utils import from_networkx
 from transformers import Wav2Vec2Model, AutoFeatureExtractor
-from models.resnet import Resnet, Bottleneck
 import torchaudio
 
 SPEECH_MODEL_PATH = 'data/HuBERT'
@@ -242,15 +241,7 @@ def create_graph_of_audio_samples(dictionary, contours, files, pitches, inds, pa
 	return None
 
 def get_acoustic_feat(audio_tensor):
-	if 'resblstm' in SPEECH_MODEL_PATH:
-		model = Resnet(Bottleneck, [3, 6, 3])
-		model.to(device)
-		model.load_state_dict(torch.load(SPEECH_MODEL_PATH, map_location=torch.device(device)))
-		model.linear = torch.nn.Identity()
-		model.eval()
-		with torch.no_grad():
-			emb = model(audio_tensor)
-	elif 'wav2vec' in SPEECH_MODEL_PATH:
+	if 'wav2vec' in SPEECH_MODEL_PATH:
 		model = Wav2Vec2Model.from_pretrained(SPEECH_MODEL_PATH).to(device)
 		model.eval()
 		feature_extractor = AutoFeatureExtractor.from_pretrained(SPEECH_MODEL_PATH)
