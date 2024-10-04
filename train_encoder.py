@@ -9,13 +9,16 @@ accuracy = evaluate.load("accuracy")
 
 recall = evaluate.load('recall')
 
+F1 = evaluate.load('f1')
+
 feature_extractor = AutoFeatureExtractor.from_pretrained("facebook/hubert-large-ll60k")
 
 def compute_metrics(eval_pred):
     predictions = np.argmax(eval_pred.predictions, axis=1)
     acc = accuracy.compute(predictions=predictions, references=eval_pred.label_ids)
-    rec_w = recall.compute(predictions=predictions, references=eval_pred.label_ids, average='weighted')
-    return {'accuracy':acc, 'weighted_recall':rec_w}
+    rec_w = recall.compute(predictions=predictions, references=eval_pred.label_ids, average='macro')
+    f1 = F1.compute(predictions=predictions, references=eval_pred.label_ids, average='macro')
+    return {'accuracy':acc, 'weighted_recall':rec_w, 'F1':f1}
 
 
 def preprocess_function(examples):
