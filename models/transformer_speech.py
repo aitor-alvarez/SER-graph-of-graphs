@@ -3,7 +3,8 @@ import torch.nn as nn
 from dataclasses import dataclass
 from typing import Optional, Tuple
 from transformers.file_utils import ModelOutput
-from transformers import HubertPreTrainedModel, HubertModel, Wav2Vec2PreTrainedModel, Wav2Vec2Model
+from transformers import (HubertPreTrainedModel, HubertModel,
+                          Wav2Vec2PreTrainedModel, Wav2Vec2Model)
 
 @dataclass
 class SpeechOutputClassifier(ModelOutput):
@@ -17,14 +18,13 @@ class ClassifierModule(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
-        self.dropout = nn.Dropout(p=0.2)
         self.linear = nn.Linear(config.hidden_size, config.num_labels)
 
     def forward(self, x):
-        x = self.dense(x)
-        x = self.dropout(x)
-        x = self.linear(x)
-        return x
+        hidden_states = self.dense(x)
+        pooled_output = hidden_states.mean(dim=1)
+        output = self.linear(pooled_output)
+        return output
 
 
 class HubertEmotion(HubertPreTrainedModel):
