@@ -18,7 +18,7 @@ def compute_metrics(eval_pred):
     acc = accuracy.compute(predictions=predictions, references=eval_pred.label_ids)
     rec_w = recall.compute(predictions=predictions, references=eval_pred.label_ids, average='macro')
     f1 = F1.compute(predictions=predictions, references=eval_pred.label_ids, average='macro')
-    return {'accuracy':acc, 'weighted_recall':rec_w, 'f1':f1}
+    return {'accuracy':acc['accuracy'], 'weighted_recall':rec_w['recall'], 'f1':f1['f1']}
 
 
 def preprocess_function(examples):
@@ -85,7 +85,8 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
             warmup_steps=500,
             save_total_limit=2,
             push_to_hub=False,
-            metric_for_best_model='eval_loss'
+            load_best_model_at_end=True,
+            metric_for_best_model='eval_weighted_recall'
         )
 
     trainer = Trainer(
