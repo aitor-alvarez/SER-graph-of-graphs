@@ -13,5 +13,6 @@ lightning_logs
 IEMOCAP/
 CREMA-D/
 CNN-models/
+tmp/
 data/
 test.py
