@@ -3,6 +3,7 @@ import torch, os
 from transformers import (AutoConfig, EarlyStoppingCallback,
                           TrainingArguments, Trainer, AutoFeatureExtractor)
 from models.transformer_speech import HubertEmotion, Wav2VecEmotion
+from sklearn.metrics import balanced_accuracy_score
 import evaluate
 
 accuracy = evaluate.load("accuracy")
@@ -16,9 +17,11 @@ feature_extractor = AutoFeatureExtractor.from_pretrained("facebook/hubert-large-
 def compute_metrics(eval_pred):
     predictions = np.argmax(eval_pred.predictions, axis=1)
     acc = accuracy.compute(predictions=predictions, references=eval_pred.label_ids)
-    rec_w = recall.compute(predictions=predictions, references=eval_pred.label_ids, average='macro')
-    f1 = F1.compute(predictions=predictions, references=eval_pred.label_ids, average='macro')
-    return {'accuracy':acc['accuracy'], 'weighted_recall':rec_w['recall'], 'f1':f1['f1']}
+    acc_w = balanced_accuracy_score(eval_pred.label_ids, predictions)
+    rec_w = recall.compute(predictions=predictions, references=eval_pred.label_ids, average='weighted')
+    f1 = F1.compute(predictions=predictions, references=eval_pred.label_ids, average='weighted')
+    return {'accuracy':acc['accuracy'], 'weighted_accuracy':acc_w , 'weighted_recall':rec_w['recall'],
+            'weighted_f1':f1['f1']}
 
 
 def preprocess_function(examples):
