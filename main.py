@@ -8,6 +8,7 @@ models = ['gnn']
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--model_id')
     parser.add_argument('--num_epochs')
     parser.add_argument('--batch_size')
