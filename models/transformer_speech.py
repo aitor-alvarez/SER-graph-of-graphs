@@ -6,6 +6,7 @@ from transformers.file_utils import ModelOutput
 from transformers import (HubertPreTrainedModel, HubertModel,
                           Wav2Vec2PreTrainedModel, Wav2Vec2Model)
 
+
 @dataclass
 class SpeechOutputClassifier(ModelOutput):
     loss: Optional[torch.FloatTensor] = None
@@ -21,9 +22,8 @@ class ClassifierModule(nn.Module):
         self.linear = nn.Linear(config.hidden_size, config.num_labels)
 
     def forward(self, x):
-        hidden_states = self.dense(x)
-        pooled_output = hidden_states.mean(dim=1)
-        output = self.linear(pooled_output)
+        x = self.dense(x)
+        output = self.linear(x)
         return output
 
 
