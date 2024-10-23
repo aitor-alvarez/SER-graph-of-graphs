@@ -33,7 +33,6 @@ class HubertEmotion(HubertPreTrainedModel):
         self.num_labels = self.config.num_labels
         self.hubert = HubertModel(config)
         self.classifier = ClassifierModule(config)
-        self.init_weights()
 
     def freeze_feature_extractor(self):
         self.hubert.feature_extractor._freeze_parameters()
@@ -67,7 +66,6 @@ class Wav2VecEmotion(Wav2Vec2PreTrainedModel):
         self.num_labels = self.config.num_labels
         self.w2v = Wav2Vec2Model(config)
         self.classifier = ClassifierModule(config)
-        self.init_weights()
 
     def freeze_feature_extractor(self):
         self.w2v.feature_extractor._freeze_parameters()
