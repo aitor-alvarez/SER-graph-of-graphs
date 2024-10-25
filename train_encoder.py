@@ -54,7 +54,7 @@ def collate_fn(batch):
 
     return tensors, targets
 
-def emotion_classification_pretrained(model_name, dataset, output_dir, batch_size, num_epochs):
+def emotion_classification_pretrained(model_name, dataset, output_dir, batch_size, num_epochs, deepspeed=None):
     labels = dataset["train"].features["label"].names
     label2id, id2label = dict(), dict()
     for i, label in enumerate(labels):
@@ -99,6 +99,7 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
             warmup_steps=500,
             save_total_limit=2,
             push_to_hub=False,
+            deepspeed= deepspeed,
             load_best_model_at_end=True,
             metric_for_best_model='eval_weighted_recall'
         )

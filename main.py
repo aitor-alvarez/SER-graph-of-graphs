@@ -17,12 +17,16 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir')
     parser.add_argument('--create_graphs')
     parser.add_argument('--create_multi')
+    parser.add_argument('--deepspeed')
     args = parser.parse_args()
 
     #For training/fine-tuning the audio encoder.
     if args.model_id not in models and args.data_folder:
         dataset = load_dataset("audiofolder", data_dir=args.data_folder, drop_labels=False)
-        emotion_classification_pretrained(args.model_id, dataset, args.output_dir, args.batch_size, args.num_epochs)
+        if args.deepspeed:
+            emotion_classification_pretrained(args.model_id, dataset, args.output_dir, args.batch_size, args.num_epochs, args.deepspeed)
+        else:
+            emotion_classification_pretrained(args.model_id, dataset, args.output_dir, args.batch_size, args.num_epochs)
     if args.create_graphs and args.data_folder:
         generate_graphs(args.data_folder)
     elif args.create_multi =='y':
