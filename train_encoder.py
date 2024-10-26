@@ -87,6 +87,7 @@ def emotion_classification_pretrained(model_name, dataset, output_dir, batch_siz
             output_dir=output_dir,
             remove_unused_columns=False,
             per_device_train_batch_size=batch_size,
+            train_micro_batch_size_per_gpu=batch_size,
             gradient_accumulation_steps=2,
             evaluation_strategy="steps",
             num_train_epochs=num_epochs,
